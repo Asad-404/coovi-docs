@@ -1,20 +1,25 @@
 # COOVI Quick Status
 
-Last updated: 2026-10-12. All dev servers are **stopped**; nothing is running.
-Start here when resuming. API contract: `API_ENDPOINTS.md`. Deferred deployment runbook: `DEPLOYMENT_PLAN.md`.
+Last updated: 2026-10-13. All dev servers are **stopped**; nothing is running.
+Start here when resuming. API contract: `API_ENDPOINTS.md`.
 
 ## Waiting on you
 
 1. **Delete the old branches yourself** (Claude's delete was blocked on 2026-10-12). Every branch other than `master` in all three repos is the exact head of a merged pull request (checked 2026-10-12), so none holds unmerged work. See "Old branches to delete" below.
 2. **Delete the demo data yourself** (Claude's delete was blocked): product `test-saree` ("Updated Test Saree") and order `ORD-20260920-814` ("Smoke Test"). Use the admin panel for the product; the order needs Atlas (the admin has no delete-order button). Order `ORD-20260919-558` ("Test Customer") also looks like test data.
 3. **Policy pages: add your real terms** (return window, refund method, delivery time). See "Policy pages" below.
-4. **AIDLC to-do T5 to T7** in `docs/AIDLC_TODO.md` (production Atlas database, production secrets, business details). T1 to T4 and T8 are done.
+4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
+   - Production database: in Atlas, create a new DB user (for example `coovi_prod`) with read/write on a new database named `coovi-prod` only, and keep the connection string ready.
+   - Production secrets, saved in a password manager: a new `JWT_SECRET` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`), a production admin email and a strong admin password.
+   - Business details to tell Claude (not secrets): the real WhatsApp number, the delivery fee in BDT and the production admin email.
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
 
 ## Docs repository
 
 The workspace root is the private `Asad-404/coovi-docs` repository (branch `main`, set up and merged 2026-10-12, pull request #1). It tracks only the root documents, `docs/` and `tools/`; the three app folders are ignored. The 13 planning files from 2026-09-17 were removed and stay in the Git history (commit `79758b1`). Doc changes go through a branch and pull request like the apps.
+
+Removed 2026-10-13 because they were out of date, and still in the Git history: `DEPLOYMENT_PLAN.md` (the apps are deployed; see "Live deployment"), `docs/PROGRESS.md` (old task log and learning notes) and `docs/AIDLC_TODO.md` (its open steps are item 4 above). To read one again: `git show 300b9a2:docs/PROGRESS.md`.
 
 ## Old branches to delete
 
@@ -29,7 +34,7 @@ Local: `git branch -D <name>`. Remote: `git push origin --delete <name>`, or the
 ## Live deployment
 
 - API: https://coovi-api.onrender.com (Render free plan, deployed 2026-10-07; `/health` returns ok). Build command `pnpm install --frozen-lockfile --prod=false && pnpm build`, start `node dist/index.js`.
-- It uses the **dev** Atlas database for now (owner's choice, to test first). Switching `MONGODB_URI` to `coovi-prod` later gives an empty database: the admin is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD` on first boot and products must be re-added through the admin.
+- It uses the **dev** Atlas database for now (owner's choice, to test first). Switching `MONGODB_URI` to `coovi-prod` later gives an empty database: the admin is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD` on first boot and products must be re-added through the admin. Changing `ADMIN_PASSWORD` on Render later does not change an existing admin's password.
 - Storefront: https://coovi-storefront.vercel.app and admin: https://coovi-admin.vercel.app (Vercel Hobby, deployed 2026-10-07 from `master`; every merge to `master` redeploys). Checked 2026-10-07: products load, canonical and sitemap use the real address, admin deep links work, API allows both origins.
 - `CORS_ORIGINS` on Render matches the two Vercel addresses. Vercel env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL` (storefront), `VITE_API_URL` (admin); a change needs a redeploy.
 - The site is public and search engines may index it while it still has some stock photos, the placeholder WhatsApp number and dev data.
