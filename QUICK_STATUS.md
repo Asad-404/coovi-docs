@@ -10,7 +10,11 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Deferred deployment 
 3. **Policy pages: add your real terms** (return window, refund method, delivery time). See "Policy pages" below.
 4. **AIDLC to-do T5 to T7** in `docs/AIDLC_TODO.md` (production Atlas database, production secrets, business details). T1 to T4 and T8 are done.
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
-6. **Merge the `docs/current-workspace` pull request in `coovi-docs`** (opened 2026-10-12). The workspace root is now the private `Asad-404/coovi-docs` repository (branch `main`), tracking only the root documents, `docs/` and `tools/`. The pull request replaces the 15 planning files from 2026-09-17 with the current documents; the old files stay in the Git history. After merging, run `git checkout main` then `git pull` in `D:\Work\COOVI`.
+6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
+
+## Docs repository
+
+The workspace root is the private `Asad-404/coovi-docs` repository (branch `main`, set up and merged 2026-10-12, pull request #1). It tracks only the root documents, `docs/` and `tools/`; the three app folders are ignored. The 13 planning files from 2026-09-17 were removed and stay in the Git history (commit `79758b1`). Doc changes go through a branch and pull request like the apps.
 
 ## Old branches to delete
 
