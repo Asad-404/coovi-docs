@@ -17,10 +17,8 @@ This root folder is the private `coovi-docs` repo. It holds only these documents
 - **QUICK_STATUS.md** — where the project is right now + how to resume. **Start here.**
 - **API_ENDPOINTS.md** — the API contract between all three codebases (updated 2026-10-04)
 - **tools/screenshot.mjs** — captures any page at phone or desktop width for design comparison
-- **DEPLOYMENT_PLAN.md** — deferred deployment runbook
+- **`docs/ADMIN_FEATURE_PLAN.md`** — implementation plan for the admin features in the backlog
 - **`CLAUDE.md`** — workspace-wide rules; each app has its own project-specific `CLAUDE.md`
-- **`docs/PROGRESS.md`** — historical learning log: task history and key concepts learned (not current implementation guidance)
-
 ## Resume in one line
 
 Read `QUICK_STATUS.md` — it has the current task, the state of each server, and resume commands.

@@ -32,8 +32,7 @@ Run Git commands, commits, and reviews inside the repository they concern. The w
 - `QUICK_STATUS.md` — current status, backlog of unbuilt features, placeholders to replace, and manual resume commands; start here.
 - `API_ENDPOINTS.md` — canonical contract shared by all three apps.
 - `tools/screenshot.mjs` — captures any page at phone or desktop width for design comparison.
-- `DEPLOYMENT_PLAN.md` — deferred deployment runbook.
-- `docs/PROGRESS.md` — historical task log and learning notes; do not treat it as current implementation guidance.
+- `docs/ADMIN_FEATURE_PLAN.md` — implementation plan for the admin features in the backlog.
 
 ## Manual resume commands
 
