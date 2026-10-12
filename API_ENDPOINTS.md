@@ -1,645 +1,125 @@
-# 🔌 API Endpoints Documentation - COOVI
+# COOVI API Contract
 
-Complete REST API reference for all backend endpoints.
+Canonical contract shared by `coovi-api`, `coovi-storefront` and `coovi-admin`. Base URL (dev): `http://localhost:5000/api`.
+Source of truth is the code in `coovi-api/src/routes/`; update this file in the same change as any route change.
 
----
+## Conventions
 
-## 🌐 Base URL
+- Every response is JSON: `{ "success": boolean, "data"?, "message"?, "errors"?, "pagination"? }`.
+- Validation failures return `400` with `errors: ["field: reason", ...]`. Unknown routes return `404` JSON.
+- Money is whole BDT (integers). Dates are ISO strings.
+- Admin routes need `Authorization: Bearer <JWT>` (token from `POST /auth/login`, expires in 1 day). Missing or bad token returns `401`.
+- Rate limits (per IP): reads 100/min, login 5 per 15 min, order creation 20/hour, order lookup 20/min. Exceeding returns `429`.
+- CORS allows the origins in `CORS_ORIGINS` (default `http://localhost:3000`, `http://localhost:5173`).
 
-**Development:** `http://localhost:5000/api`  
-**Production:** `https://your-api-domain.com/api`
+## Authority rules
 
----
+The API is the source of truth for prices, stock, delivery fee, order totals, order status and authorization. Clients send product IDs and quantities only. Unknown order fields (prices, totals) are ignored, never stored.
 
-## 🔐 Authentication
+## Product object
 
-All admin routes require JWT token in Authorization header:
+| Field | Type | Notes |
+|---|---|---|
+| `_id` | string | Mongo ID |
+| `slug` | string | unique, lowercase words joined by `-` |
+| `name`, `nameBn?` | string | English / Bengali name |
+| `description?`, `descriptionBn?` | string | up to 2000 chars |
+| `price` | number | **current selling price**; what orders charge |
+| `compareAtPrice?` | number | original price before a discount. The product is **on sale** when `compareAtPrice > price` |
+| `images` | string[] | at least 1 URL |
+| `size?` | string | |
+| `category` | string | default `Saree` |
+| `stock` | number | |
+| `inStock` | boolean | |
+| `createdAt`, `updatedAt` | string | |
 
-```
-Authorization: Bearer <your_jwt_token>
-```
+## Health
 
----
+### `GET /health` (public)
+Returns `200 { success: true, status: "ok", db: "connected", uptimeSeconds }`, or `503` with `status: "degraded"` when the database is not connected. Use it for uptime monitors and post-deploy smoke tests. `GET /` is a cheap liveness check that does not touch the database.
 
-## 📦 Products API
+## Products
 
-### GET /products
+### `GET /products` (public)
+Query (all optional; bad values fall back to defaults instead of erroring):
 
-Get paginated list of products with search and sort.
+| Param | Default | Notes |
+|---|---|---|
+| `page` | 1 | min 1 |
+| `limit` | 12 | 1 to 50 |
+| `search` | none | partial, case-insensitive match on `name` |
+| `sort` | `newest` | `newest`, `price-asc`, `price-desc`, `name-asc`, `name-desc` |
+| `category` | none | exact match |
+| `onSale` | `false` | `true` returns only products with `compareAtPrice > price` |
 
-**Query Parameters:**
-- `page` (number, optional) - Page number, default: 1
-- `limit` (number, optional) - Items per page, default: 12
-- `search` (string, optional) - Search by product name
-- `sort` (string, optional) - Sort order: `price_asc`, `price_desc`, `newest`
-- `featured` (boolean, optional) - Filter featured products
-- `category` (string, optional) - Filter by category
+Response: `{ success, data: Product[], pagination: { page, limit, total, pages, hasMore } }`.
 
-**Response:**
+### `GET /products/:slug` (public)
+Returns `{ success, data: Product }`, or `404` `Product not found`.
+
+### `POST /products` (admin)
+Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice` optional.
+`price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Returns `201 { data: Product }`; duplicate slug returns `400`.
+
+### `PUT /products/:id` (admin)
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. Returns `{ data: Product }` or `404`.
+
+### `DELETE /products/:id` (admin)
+Returns `{ success, message }` or `404`.
+
+## Orders
+
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `createdAt`, `updatedAt`.
+Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`.
+
+### `POST /orders` (public, guest checkout)
+Body:
 ```json
-{
-  "success": true,
-  "products": [
-    {
-      "_id": "65a1b2c3d4e5f6789012345",
-      "slug": "red-cotton-saree",
-      "name": "Red Cotton Saree",
-      "price": 1299,
-      "images": ["url1", "url2"],
-      "category": "Saree",
-      "inStock": true,
-      "stockCount": 15,
-      "featured": true,
-      "createdAt": "2026-09-17T10:00:00.000Z"
-    }
-  ],
-  "pagination": {
-    "total": 50,
-    "page": 1,
-    "pages": 5,
-    "limit": 12
-  }
-}
+{ "customerName": "string", "phone": "01XXXXXXXXX", "address": "string (5-500)", "notes": "optional",
+  "items": [{ "productId": "string", "quantity": 1 }] }
 ```
+`phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock`) and has enough stock, adds `DELIVERY_FEE`, and stores the order as `Pending`.
+Returns `201 { data: Order }`. Errors: `400` for invalid data, a removed product, a product switched off for sale, or insufficient stock (message names the product).
 
-**Example Requests:**
-```bash
-# Get all products
-GET /api/products
+### `GET /orders/delivery-fee` (public)
+Returns `{ data: { deliveryFee: number } }`, the same value orders are charged (`.env` `DELIVERY_FEE`, default 60).
 
-# Search products
-GET /api/products?search=red
+### `GET /orders/:orderNumber?phone=01XXXXXXXXX` (public)
+Order number and phone together act as the guest's credentials. Missing phone returns `400`; wrong phone or unknown order returns the same `404 Order not found`.
 
-# Featured products only
-GET /api/products?featured=true
+### `GET /orders` (admin)
+Query: `page` (1), `limit` (20, max 100), `status`; bad values fall back to defaults. Returns `{ data: Order[], pagination: { page, limit, total, pages } }`, newest first.
 
-# Sorted by price (low to high)
-GET /api/products?sort=price_asc
+### `PATCH /orders/:id` (admin)
+Corrects contact details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`. Items, prices and totals cannot be edited. Returns `{ data: Order }`, `404` if unknown, or `409` when the order is `Delivered` or `Cancelled`.
 
-# Pagination
-GET /api/products?page=2&limit=20
-```
+### `PATCH /orders/:id/status` (admin)
+Body `{ "status": "<status>" }`. Orders only move forward: `Pending` to `Processing` or `Cancelled`; `Processing` to `Shipped` or `Cancelled`; `Shipped` to `Delivered`. `Delivered` and `Cancelled` are final. Any other change, including the same status again, returns `409` naming the allowed statuses. When two admins change the same order at once, the second gets `409`. Stock rules:
+- `Pending` to `Processing`: stock is decremented atomically; if any item lacks stock it returns `409` and nothing changes.
+- `Processing` to `Cancelled`: stock is restored.
 
----
+## Auth
 
-### GET /products/:slug
+### `POST /auth/login`
+Body `{ email, password }`. Returns `{ data: { token, admin: { id, email, name, role } } }`. Wrong credentials return `401 Invalid email or password`.
 
-Get single product by slug.
+### `GET /auth/me` (admin)
+Returns `{ data: Admin }` without the password hash.
 
-**Parameters:**
-- `slug` (string) - Product slug (e.g., "red-cotton-saree")
+### `PATCH /auth/password` (admin)
+Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must differ from the current one; unknown fields rejected). Returns `{ success, message }`. Wrong current password returns `401 Current password is incorrect`. Shares the login rate limit (5 per 15 min).
 
-**Response:**
-```json
-{
-  "success": true,
-  "product": {
-    "_id": "65a1b2c3d4e5f6789012345",
-    "slug": "red-cotton-saree",
-    "name": "Red Cotton Saree",
-    "price": 1299,
-    "images": ["url1", "url2"],
-    "category": "Saree",
-    "size": "Free Size",
-    "description": "Beautiful red cotton saree",
-    "inStock": true,
-    "stockCount": 15,
-    "featured": true,
-    "createdAt": "2026-09-17T10:00:00.000Z",
-    "updatedAt": "2026-09-17T10:00:00.000Z"
-  }
-}
-```
+## Uploads
 
-**Error Response (404):**
-```json
-{
-  "success": false,
-  "message": "Product not found"
-}
-```
+### `POST /uploads/signature` (admin)
+No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
----
+## Changelog
 
-### POST /products 🔒
+- 2026-10-12: added `POST /uploads/signature` (admin photo upload through Cloudinary). The product `images` field is unchanged: still an array of URLs.
 
-Create new product (Admin only).
+- 2026-10-06 (documented 2026-10-07): added `PATCH /orders/:id`; order status is forward-only (`409` otherwise); orders reject products switched off for sale; `GET /orders` limit capped at 100; product `price` minimum 1; `PUT /products/:id` clears omitted optional fields.
 
-**Headers:**
-```
-Authorization: Bearer <admin_token>
-Content-Type: application/json
-```
+- 2026-10-04: added `PATCH /auth/password` and `GET /health`.
 
-**Request Body:**
-```json
-{
-  "name": "Blue Silk Saree",
-  "slug": "blue-silk-saree",
-  "price": 2499,
-  "images": [
-    "https://res.cloudinary.com/coovi/image/upload/v1/products/blue-1.jpg",
-    "https://res.cloudinary.com/coovi/image/upload/v1/products/blue-2.jpg"
-  ],
-  "category": "Saree",
-  "size": "Free Size",
-  "description": "Elegant blue silk saree",
-  "stockCount": 10,
-  "featured": false
-}
-```
-
-**Response (201):**
-```json
-{
-  "success": true,
-  "message": "Product created successfully",
-  "product": { /* product object */ }
-}
-```
-
-**Validation Errors (400):**
-```json
-{
-  "success": false,
-  "message": "Validation error",
-  "errors": {
-    "name": "Product name is required",
-    "price": "Price must be greater than 0"
-  }
-}
-```
-
----
-
-### PUT /products/:id 🔒
-
-Update existing product (Admin only).
-
-**Parameters:**
-- `id` (string) - Product MongoDB _id
-
-**Request Body:**
-```json
-{
-  "name": "Updated Product Name",
-  "price": 1499,
-  "stockCount": 20,
-  "featured": true
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Product updated successfully",
-  "product": { /* updated product */ }
-}
-```
-
----
-
-### DELETE /products/:id 🔒
-
-Delete product (Admin only).
-
-**Parameters:**
-- `id` (string) - Product MongoDB _id
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Product deleted successfully"
-}
-```
-
----
-
-## 📦 Orders API
-
-### POST /orders
-
-Create new order (Guest checkout).
-
-**Request Body:**
-```json
-{
-  "customerName": "John Doe",
-  "phone": "+8801712345678",
-  "email": "john@example.com",
-  "address": {
-    "street": "123 Main Street",
-    "city": "Dhaka",
-    "district": "Dhaka",
-    "postalCode": "1200"
-  },
-  "items": [
-    {
-      "productId": "65a1b2c3d4e5f6789012345",
-      "name": "Red Cotton Saree",
-      "price": 1299,
-      "quantity": 2,
-      "image": "https://cloudinary.com/image.jpg"
-    }
-  ],
-  "notes": "Please deliver after 5 PM"
-}
-```
-
-**Response (201):**
-```json
-{
-  "success": true,
-  "message": "Order placed successfully",
-  "order": {
-    "_id": "65a1b2c3d4e5f6789012346",
-    "orderNumber": "ORD-20260917-001",
-    "customerName": "John Doe",
-    "phone": "+8801712345678",
-    "items": [/* items */],
-    "subtotal": 2598,
-    "deliveryFee": 60,
-    "total": 2658,
-    "status": "Pending",
-    "createdAt": "2026-09-17T14:30:00.000Z"
-  }
-}
-```
-
-**Validation Errors:**
-```json
-{
-  "success": false,
-  "message": "Validation error",
-  "errors": {
-    "customerName": "Customer name is required",
-    "phone": "Phone number is required",
-    "items": "At least one item is required"
-  }
-}
-```
-
-**Stock Error (400):**
-```json
-{
-  "success": false,
-  "message": "Product 'Red Cotton Saree' is out of stock"
-}
-```
-
----
-
-### GET /orders 🔒
-
-Get all orders (Admin only).
-
-**Query Parameters:**
-- `page` (number) - Page number
-- `limit` (number) - Items per page
-- `status` (string) - Filter by status: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`
-- `search` (string) - Search by order number or customer name
-
-**Response:**
-```json
-{
-  "success": true,
-  "orders": [
-    {
-      "_id": "65a1b2c3d4e5f6789012346",
-      "orderNumber": "ORD-20260917-001",
-      "customerName": "John Doe",
-      "phone": "+8801712345678",
-      "total": 2658,
-      "status": "Pending",
-      "createdAt": "2026-09-17T14:30:00.000Z"
-    }
-  ],
-  "pagination": {
-    "total": 100,
-    "page": 1,
-    "pages": 10,
-    "limit": 10
-  }
-}
-```
-
----
-
-### GET /orders/:id 🔒
-
-Get single order details (Admin only).
-
-**Parameters:**
-- `id` (string) - Order MongoDB _id or order number
-
-**Response:**
-```json
-{
-  "success": true,
-  "order": {
-    "_id": "65a1b2c3d4e5f6789012346",
-    "orderNumber": "ORD-20260917-001",
-    "customerName": "John Doe",
-    "phone": "+8801712345678",
-    "email": "john@example.com",
-    "address": {
-      "street": "123 Main Street",
-      "city": "Dhaka",
-      "district": "Dhaka",
-      "postalCode": "1200"
-    },
-    "items": [
-      {
-        "productId": "65a1b2c3d4e5f6789012345",
-        "name": "Red Cotton Saree",
-        "price": 1299,
-        "quantity": 2,
-        "image": "url"
-      }
-    ],
-    "subtotal": 2598,
-    "deliveryFee": 60,
-    "total": 2658,
-    "paymentMethod": "COD",
-    "status": "Pending",
-    "notes": "Please deliver after 5 PM",
-    "createdAt": "2026-09-17T14:30:00.000Z",
-    "updatedAt": "2026-09-17T14:30:00.000Z"
-  }
-}
-```
-
----
-
-### PATCH /orders/:id/status 🔒
-
-Update order status (Admin only).
-
-**Parameters:**
-- `id` (string) - Order MongoDB _id
-
-**Request Body:**
-```json
-{
-  "status": "Processing"
-}
-```
-
-**Allowed Status Values:**
-- `Pending`
-- `Processing`
-- `Shipped`
-- `Delivered`
-- `Cancelled`
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Order status updated to Processing",
-  "order": { /* updated order */ }
-}
-```
-
-**Note:** When status changes to `Processing`, stock is decreased automatically.
-
----
-
-## 🔐 Authentication API
-
-### POST /auth/login
-
-Admin login.
-
-**Request Body:**
-```json
-{
-  "email": "admin@coovi.com",
-  "password": "your_password"
-}
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "admin": {
-    "_id": "65a1b2c3d4e5f6789012347",
-    "email": "admin@coovi.com",
-    "name": "Admin User",
-    "role": "admin"
-  }
-}
-```
-
-**Error Response (401):**
-```json
-{
-  "success": false,
-  "message": "Invalid email or password"
-}
-```
-
----
-
-### POST /auth/logout 🔒
-
-Admin logout.
-
-**Headers:**
-```
-Authorization: Bearer <admin_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Logged out successfully"
-}
-```
-
----
-
-### GET /auth/me 🔒
-
-Get current admin details.
-
-**Headers:**
-```
-Authorization: Bearer <admin_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "admin": {
-    "_id": "65a1b2c3d4e5f6789012347",
-    "email": "admin@coovi.com",
-    "name": "Admin User",
-    "role": "admin"
-  }
-}
-```
-
----
-
-## 📊 Dashboard Stats API
-
-### GET /dashboard/stats 🔒
-
-Get dashboard statistics (Admin only).
-
-**Response:**
-```json
-{
-  "success": true,
-  "stats": {
-    "todayOrders": 5,
-    "pendingOrders": 12,
-    "totalRevenue": 125000,
-    "lowStockProducts": 3
-  }
-}
-```
-
----
-
-## 🖼️ Image Upload API
-
-### POST /upload/image 🔒
-
-Upload product image to Cloudinary (Admin only).
-
-**Headers:**
-```
-Authorization: Bearer <admin_token>
-Content-Type: multipart/form-data
-```
-
-**Request Body (FormData):**
-```
-image: <file> (max 5MB, jpg/png/webp)
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "imageUrl": "https://res.cloudinary.com/coovi/image/upload/v1/products/image.jpg"
-}
-```
-
----
-
-## ⚠️ Error Responses
-
-### 400 Bad Request
-```json
-{
-  "success": false,
-  "message": "Validation error",
-  "errors": { /* field errors */ }
-}
-```
-
-### 401 Unauthorized
-```json
-{
-  "success": false,
-  "message": "Unauthorized. Please login."
-}
-```
-
-### 403 Forbidden
-```json
-{
-  "success": false,
-  "message": "Access denied. Admin only."
-}
-```
-
-### 404 Not Found
-```json
-{
-  "success": false,
-  "message": "Resource not found"
-}
-```
-
-### 500 Internal Server Error
-```json
-{
-  "success": false,
-  "message": "Internal server error",
-  "error": "Error details (development mode only)"
-}
-```
-
----
-
-## 📝 Testing with cURL
-
-### Get Products
-```bash
-curl http://localhost:5000/api/products
-```
-
-### Create Order
-```bash
-curl -X POST http://localhost:5000/api/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customerName": "Test User",
-    "phone": "+8801712345678",
-    "address": {
-      "street": "123 Test St",
-      "city": "Dhaka",
-      "district": "Dhaka",
-      "postalCode": "1200"
-    },
-    "items": [
-      {
-        "productId": "65a1b2c3d4e5f6789012345",
-        "name": "Red Cotton Saree",
-        "price": 1299,
-        "quantity": 1,
-        "image": "url"
-      }
-    ]
-  }'
-```
-
-### Admin Login
-```bash
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@coovi.com",
-    "password": "password123"
-  }'
-```
-
-### Create Product (with token)
-```bash
-curl -X POST http://localhost:5000/api/products \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-  -d '{
-    "name": "New Saree",
-    "slug": "new-saree",
-    "price": 1999,
-    "images": ["url1", "url2"],
-    "category": "Saree",
-    "stockCount": 10
-  }'
-```
-
----
-
-**API documentation complete! Ready for frontend integration** 🎉
+- 2026-10-04: added `compareAtPrice` on products and `GET /products?onSale=true` (sale pricing; order totals unchanged).

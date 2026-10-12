@@ -1,0 +1,16 @@
+# This repository tracks only the workspace documents and tools.
+# Each app is its own repository and must never be added here.
+/coovi-api/
+/coovi-storefront/
+/coovi-admin/
+
+# Local-only files
+.claude/settings.local.json
+node_modules/
+.env
+.env.*
+*.log
+
+# Screenshots captured with tools/screenshot.mjs
+*.png
+*.jpg
