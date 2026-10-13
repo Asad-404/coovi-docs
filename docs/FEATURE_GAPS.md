@@ -13,11 +13,37 @@ Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi
 
 | | Have | Partial | Missing |
 |---|---|---|---|
-| Customer side (storefront) | 6 | 4 | 14 |
-| Running orders (admin) | 4 | 3 | 15 |
+| Customer side (storefront) | 6 | 4 | 15 |
+| Running orders (admin) | 4 | 3 | 16 |
 | Selling and marketing | 0 | 1 | 5 |
 
 P1 gaps, in suggested build order: new-order alerts, manual order entry, district and area at checkout with delivery fee by area, internal notes and status history, courier booking and tracking, order SMS to the customer, cancel and return with restock, shop settings page, Facebook Pixel, cash collection from couriers.
+
+## Admin feature plan coverage
+
+Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below; none is built yet. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
+
+| Plan # | Feature | Table and priority |
+|---|---|---|
+| 1 | New-order alerts | Admin, P1 |
+| 2 | Cancel and return with restock | Admin, P1 |
+| 3 | Internal notes and history | Admin, P1 |
+| 4 | Courier details | Admin, P1 |
+| 5 | Delivery fee by area | Customer, P1 |
+| 6 | Shop settings page | Admin, P1 |
+| 14 | Manual order entry | Admin, P1 |
+| 7 | Categories | Customer, P2 |
+| 8 | Customers list | Admin, P2 |
+| 9a | Product attributes | Customer, P2 |
+| 11 | Reports | Admin, P2 |
+| 12 | Orders pagination and search | Admin, P2 |
+| 9b | Product variants | Admin, P3 |
+| 10 | Discount codes | Customer, P3 |
+| 13 | Second admin and roles | Admin, P3 |
+| 15 | Bulk actions | Admin, P3 |
+| 16 | Homepage banner | Admin, P3 |
+| 17 | Stock history log | Admin, P3 |
+| 18 | Reviews and back-in-stock | Customer, P3 |
 
 ## Customer side (storefront)
 
@@ -46,6 +72,7 @@ P1 gaps, in suggested build order: new-order alerts, manual order entry, distric
 | Product video | Missing | P3 | New | Sarees sell well on video; Cloudinary can host it. |
 | Reviews and back-in-stock requests | Missing | P3 | 18 | |
 | Wishlist | Missing | P3 | New | |
+| Icon on the mobile header | Missing | P3 | New | Optional item from the `QUICK_STATUS.md` backlog. |
 | Customer accounts with order history | Missing | P3 | New | Guest checkout is fine to start; accounts help repeat buyers later. |
 
 ## Running orders (admin)
@@ -74,6 +101,7 @@ P1 gaps, in suggested build order: new-order alerts, manual order entry, distric
 | Homepage banner from the admin | Missing | P3 | 16 | |
 | Product variants (same design, several colours) | Missing | P3 | 9b | Only if you stock repeats. |
 | Expenses and simple accounts | Missing | P3 | New | |
+| Delete a product's photos from Cloudinary when the product is deleted | Missing | P3 | New | Open item from the photo upload work in `QUICK_STATUS.md`. |
 
 ## Selling and marketing
 
