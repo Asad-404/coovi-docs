@@ -72,7 +72,7 @@ Returns `{ success, message }` or `404`.
 
 ## Orders
 
-Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `district?` (one of the 64 districts; missing on orders placed before delivery areas), `deliveryArea` (`inside_dhaka` or `outside_dhaka`; older orders without it count as `inside_dhaka`), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `createdAt`, `updatedAt`.
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `district?` (one of the 64 districts; missing on orders placed before delivery areas), `deliveryArea` (`inside_dhaka` or `outside_dhaka`; older orders without it count as `inside_dhaka`), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `discount` (taka off the items, `0` unless an admin agreed one on a manual order), `deliveryFee`, `total` (`subtotal - discount + deliveryFee`), `status`, `paymentMethod` (COD), `notes?`, `source` (`website`, `facebook`, `whatsapp`, `phone` or `other`; orders saved before 2026-10-13 read as `website`), `createdBy?` (email of the admin who entered a manual order), `createdAt`, `updatedAt`.
 Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`.
 
 ### `POST /orders` (public, guest checkout)
@@ -86,6 +86,14 @@ Body:
 `phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock`) and has enough stock, adds the delivery fee for the order's `deliveryArea`, and stores the order as `Pending`. When stock is short and the product has `allowPreorder`, the whole line is stored with `preorder: true` and the product's `preorderDays` instead of being refused.
 Returns `201 { data: Order }`. Errors: `400` for invalid data, a removed product, a product switched off for sale, or insufficient stock (message names the product).
 
+### `POST /orders/manual` (admin)
+Enters an order taken by Facebook, WhatsApp or phone. Body (strict, unknown fields such as `total` or `price` rejected): the same fields as `POST /orders`, plus:
+```json
+{ "source": "facebook | whatsapp | phone | other", "deliveryFeeOverride": 0, "discount": 500 }
+```
+`source` is required. `district` and `deliveryArea` follow the checkout rule; the fee is the one for that area unless `deliveryFeeOverride` (optional, whole taka 0 to 10000) replaces it for this order. `discount` (optional, whole taka, default 0) comes off the items and cannot be more than the subtotal. Items are priced and checked exactly like `POST /orders` (database prices, `inStock`, stock or pre-order). The order is stored as `Pending` with `createdBy` set to the admin's email; confirming it takes stock like any other order. Not rate-limited, and it sends no new-order email.
+Returns `201 { data: Order }`. Errors: `400` for invalid data, a discount above the subtotal, or the same product and stock errors as checkout; `401` without an admin token.
+
 ### `GET /orders/delivery-fee` (public)
 Returns `{ data: { deliveryFee, zones: { inside_dhaka, outside_dhaka }, districts: string[] } }`. `zones` holds the fee per area, the same amounts orders are charged; `deliveryFee` repeats the inside-Dhaka fee for older clients. `districts` is the 64-district list checkout offers. Fees come from `.env` `DELIVERY_FEE_INSIDE_DHAKA` and `DELIVERY_FEE_OUTSIDE_DHAKA` (placeholder defaults 70 and 130 until the owner sets real ones); the old `DELIVERY_FEE` is still read as the inside-Dhaka fee.
 
@@ -97,7 +105,7 @@ Query: `page` (1), `limit` (20, max 100), `status`, `deliveryArea` (`inside_dhak
 `updatedSince` (optional, ISO date-time such as `2026-10-13T07:45:00.000Z`) returns only orders created or changed at or after that time, oldest change first; an invalid value returns `400`. `serverTime` is the server's clock when the request started: pass it as the next `updatedSince` so nothing is missed, whatever the client's own clock says.
 
 ### `PATCH /orders/:id` (admin)
-Corrects contact and delivery details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`, `district`, `deliveryArea`. Items, prices and totals cannot be edited. `district` and `deliveryArea` follow the checkout rule and can change only while the order is `Pending` (`409` after). When the area changes, the API sets `deliveryFee` to the current fee for the new area and recomputes `total`; a district change within the same area keeps the fee charged at checkout. Returns `{ data: Order }`, `400` for an inside-Dhaka area with another district, `404` if unknown, or `409` when the order is `Delivered` or `Cancelled`.
+Corrects contact and delivery details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`, `district`, `deliveryArea`. Items, prices and totals cannot be edited. `district` and `deliveryArea` follow the checkout rule and can change only while the order is `Pending` (`409` after). When the area changes, the API sets `deliveryFee` to the current fee for the new area (replacing any agreed manual fee) and recomputes `total`, keeping any `discount`; a district change within the same area keeps the fee charged at checkout. Returns `{ data: Order }`, `400` for an inside-Dhaka area with another district, `404` if unknown, or `409` when the order is `Delivered` or `Cancelled`.
 
 ### `PATCH /orders/:id/status` (admin)
 Body `{ "status": "<status>" }`. Orders only move forward: `Pending` to `Processing` or `Cancelled`; `Processing` to `Shipped` or `Cancelled`; `Shipped` to `Delivered`. `Delivered` and `Cancelled` are final. Any other change, including the same status again, returns `409` naming the allowed statuses. When two admins change the same order at once, the second gets `409`. Stock rules:
@@ -143,6 +151,10 @@ Returns `{ data: <every field above>, updatedAt }`.
 Body: any subset of the fields above (strict: unknown fields and an empty body return `400`). Returns `{ data: <every field>, message: "Settings saved" }`. Also `400` when the announcement would be switched on with empty text.
 
 ## Changelog
+
+- 2026-10-13: delivery fee by area: orders gain `district` and `deliveryArea`; `GET /orders/delivery-fee` adds `zones` and `districts`; `GET /orders` filters by `deliveryArea`; `PATCH /orders/:id` can change the area while Pending (coovi-api#14, coovi-admin#16, coovi-storefront#15).
+
+- 2026-10-13: manual order entry: `POST /orders/manual`; orders gain `source`, `createdBy` and `discount` (coovi-api#21, coovi-admin#15, coovi-storefront#14).
 
 - 2026-10-13: shop settings: `GET /settings`, `GET /settings/admin`, `PATCH /settings` (coovi-api#22, coovi-admin#14, coovi-storefront#13).
 
