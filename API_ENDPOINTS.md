@@ -31,6 +31,8 @@ The API is the source of truth for prices, stock, delivery fee, order totals, or
 | `category` | string | default `Saree` |
 | `stock` | number | |
 | `inStock` | boolean | |
+| `allowPreorder` | boolean | default `false`. When on, the product can still be ordered when stock is short; the line becomes a pre-order |
+| `preorderDays` | number | 1 to 90, default 15: the promised wait for a pre-order |
 | `createdAt`, `updatedAt` | string | |
 
 ## Health
@@ -58,7 +60,7 @@ Response: `{ success, data: Product[], pagination: { page, limit, total, pages, 
 Returns `{ success, data: Product }`, or `404` `Product not found`.
 
 ### `POST /products` (admin)
-Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice` optional.
+Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15) optional.
 `price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (admin)
@@ -69,7 +71,7 @@ Returns `{ success, message }` or `404`.
 
 ## Orders
 
-Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `createdAt`, `updatedAt`.
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `createdAt`, `updatedAt`.
 Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`.
 
 ### `POST /orders` (public, guest checkout)
@@ -78,7 +80,7 @@ Body:
 { "customerName": "string", "phone": "01XXXXXXXXX", "address": "string (5-500)", "notes": "optional",
   "items": [{ "productId": "string", "quantity": 1 }] }
 ```
-`phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock`) and has enough stock, adds `DELIVERY_FEE`, and stores the order as `Pending`.
+`phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock`) and has enough stock, adds `DELIVERY_FEE`, and stores the order as `Pending`. When stock is short and the product has `allowPreorder`, the whole line is stored with `preorder: true` and the product's `preorderDays` instead of being refused.
 Returns `201 { data: Order }`. Errors: `400` for invalid data, a removed product, a product switched off for sale, or insufficient stock (message names the product).
 
 ### `GET /orders/delivery-fee` (public)
@@ -95,8 +97,9 @@ Corrects contact details. Body (strict, unknown fields rejected, at least one fi
 
 ### `PATCH /orders/:id/status` (admin)
 Body `{ "status": "<status>" }`. Orders only move forward: `Pending` to `Processing` or `Cancelled`; `Processing` to `Shipped` or `Cancelled`; `Shipped` to `Delivered`. `Delivered` and `Cancelled` are final. Any other change, including the same status again, returns `409` naming the allowed statuses. When two admins change the same order at once, the second gets `409`. Stock rules:
-- `Pending` to `Processing`: stock is decremented atomically; if any item lacks stock it returns `409` and nothing changes.
-- `Processing` to `Cancelled`: stock is restored.
+- `Pending` to `Processing`: stock is decremented atomically for every line that is not a pre-order. A line whose stock ran out since the order was placed becomes a pre-order when its product has `allowPreorder`; otherwise the request returns `409` and nothing changes.
+- `Processing` to `Cancelled`: stock is restored for lines that are not pre-orders.
+- Pre-order lines never take or return stock: a piece bought for a pre-order is not added to `stock`.
 
 ## Auth
 
@@ -115,6 +118,8 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
 ## Changelog
+
+- 2026-10-13: pre-orders. Products gain `allowPreorder` and `preorderDays`; order items gain `preorder` and `preorderDays` (coovi-api#9).
 
 - 2026-10-12: added `POST /uploads/signature` (admin photo upload through Cloudinary). The product `images` field is unchanged: still an array of URLs.
 
