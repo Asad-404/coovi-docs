@@ -14,10 +14,10 @@ Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi
 | | Have | Partial | Missing |
 |---|---|---|---|
 | Customer side (storefront) | 6 | 4 | 15 |
-| Running orders (admin) | 4 | 3 | 16 |
+| Running orders (admin) | 4 | 3 | 17 |
 | Selling and marketing | 0 | 1 | 5 |
 
-P1 gaps, in suggested build order: new-order alerts, manual order entry, district and area at checkout with delivery fee by area, internal notes and status history, courier booking and tracking, order SMS to the customer, cancel and return with restock, shop settings page, Facebook Pixel, cash collection from couriers.
+P1 gaps, in suggested build order (updated 2026-10-13 with the owner's answers below): new-order alerts by email, pre-orders, district and area at checkout with delivery fee by area, internal notes and status history, cancel and return with restock, Steadfast booking and tracking, cash collection from Steadfast, shop settings page, order SMS to the customer, manual order entry.
 
 ## Admin feature plan coverage
 
@@ -83,11 +83,12 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Orders: list, filter by status and date, search, status changes | Have | | | Status only moves forward; stock taken on confirm. |
 | Edit customer contact details on an order | Have | | | |
 | CSV export and printable slip | Have | | | |
-| **New-order alerts** (Telegram, email or SMS to you) | Missing | P1 | 1 | Nothing tells you an order arrived. |
+| **New-order alerts** to you | Missing | P1 | 1 | Nothing tells you an order arrived. Owner chose WhatsApp or email: email first (free, simple); WhatsApp needs a WhatsApp Business API account and approved message templates, so it comes later. |
 | **Manual order entry** | Missing | P1 | 14 | Many orders arrive by Facebook message or phone; today they cannot go into the system, so stock and reports are wrong. |
 | **Internal notes and status history** | Missing | P1 | 3 | No place to write "called, will pay on Friday" and no record of who changed what. |
-| **Courier booking and tracking number** (Steadfast, Pathao, RedX) | Missing | P1 | 4 | Plan covers typing in the tracking number; booking the parcel through the courier's API is New. |
-| **Cancel and return with restock** | Partial | P1 | 2 | Cancel works before shipping. A parcel the customer refuses at the door, or a return after delivery, has no status and no restock. |
+| **Courier booking and tracking number** (Steadfast, owner's choice) | Missing | P1 | 4 | Plan covers typing in the tracking number; booking the parcel through the courier's API is New. |
+| **Cancel and return with restock** | Partial | P1 | 2 | Cancel works before shipping. A parcel the customer refuses at the door, or a return after delivery, has no status and no restock. Owner accepts returns after delivery, so `Delivered -> Returned` stays in the plan. |
+| **Pre-orders** | Missing | P1 | New | Owner's rule: sell from stock when the saree is in stock; when it is not, take a pre-order that ships in at least 15 days. Needs a per-product "allow pre-order" switch and lead time, a clear "Pre-order, ships in about 15 days" label on the product page, cart and confirmation, pre-order orders marked in the admin, and stock that never goes below zero. Also answers what happens when two people order the last piece: the second becomes a pre-order instead of a failed confirmation. |
 | **Cash collection from couriers** | Missing | P1 | New | Track which delivered parcels the courier has paid you for, their charge, and return costs. This is where COD shops lose money. |
 | **Shop settings page** (fee, WhatsApp number, announcement text) | Missing | P1 | 6 | Today these need a code change or a Render variable. |
 | Dashboard and reports | Partial | P2 | 11 | Revenue chart and totals exist; no profit, best sellers or return rate. |
@@ -99,7 +100,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Bulk actions (confirm or print many orders) | Missing | P3 | 15 | |
 | Stock history log | Missing | P3 | 17 | |
 | Homepage banner from the admin | Missing | P3 | 16 | |
-| Product variants (same design, several colours) | Missing | P3 | 9b | Only if you stock repeats. |
+| Product variants (same design, several colours) | Missing | P3 | 9b | Only if you stock repeats; owner is not sure yet, so it stays last. |
 | Expenses and simple accounts | Missing | P3 | New | |
 | Delete a product's photos from Cloudinary when the product is deleted | Missing | P3 | New | Open item from the photo upload work in `QUICK_STATUS.md`. |
 
@@ -107,20 +108,22 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 
 | Feature | State | Priority | Plan | Notes |
 |---|---|---|---|---|
-| **Facebook Pixel and Conversions API** | Missing | P1 | New | Most saree sales in Bangladesh come from Facebook and Instagram ads; without the pixel you cannot measure or optimise ads. Needs your Meta Business account. |
+| Facebook Pixel and Conversions API | Missing | P2 | New | Most saree sales in Bangladesh come from Facebook and Instagram ads; without the pixel you cannot measure or optimise ads. Needs your Meta Business account. Moved from P1 to P2: owner will not run ads during development. |
 | Facebook and Instagram product catalogue feed | Missing | P2 | New | Lets you tag products in posts and run catalogue ads. |
 | Visitor analytics (Google Analytics or Vercel Analytics) | Missing | P2 | New | |
 | Google Search Console and Merchant Center | Partial | P2 | | Product structured data exists; sitemap not yet submitted (needs the real domain). |
 | Abandoned-cart follow-up | Missing | P3 | New | Needs the phone before checkout ends, so it is a later step. |
 | Newsletter or SMS marketing list | Missing | P3 | New | Needs customer consent. |
 
-## Decisions only you can make
+## Owner decisions
 
-These change what gets built, so they are worth answering before the P1 work starts (some repeat the plan's own open questions):
+Answered by the owner on 2026-10-13:
 
-1. Where do most orders come from today: the website, Facebook messages, or phone? This decides how early manual order entry is needed.
-2. Which courier will you use first? This decides which booking API to build.
-3. Alerts to you: Telegram, email or SMS?
-4. Is each saree one of a kind, or do you restock the same design? This decides stock reservation and variants.
-5. Do you accept returns after delivery?
-6. Will you run Facebook ads at launch?
+1. Where orders come from: none yet, the shop is still in development. Manual order entry stays P1 but moves to the end of the P1 list.
+2. Courier: Steadfast.
+3. New-order alerts: WhatsApp or email. Email first, WhatsApp later.
+4. Stock: not decided between one-of-a-kind and restocking. For now: sell from stock when in stock, otherwise take a pre-order that ships in at least 15 days (see "Pre-orders").
+5. Returns after delivery: yes, accepted.
+6. Facebook ads: maybe later, not during development. Facebook Pixel moves to P2.
+
+Still open: the return window in days and how refunds are paid (cash, bKash), which the return policy page needs.
