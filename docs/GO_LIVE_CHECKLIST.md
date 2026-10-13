@@ -46,7 +46,7 @@ What is already in good shape (no action needed): prices, totals and the deliver
 
 | # | Item | Why it matters | Who |
 |---|---|---|---|
-| 22 | Courier integration (Pathao, Steadfast, RedX) and tracking numbers (plan feature 4). | Saves typing every parcel by hand and lets customers track deliveries. | Both |
+| 22 | Courier integration and tracking numbers (plan feature 4). Steadfast booking is built (coovi-api#18, coovi-admin#12). Still open: set `STEADFAST_API_KEY` and `STEADFAST_SECRET_KEY` on Render (from the Steadfast merchant portal, API section), book one real test parcel, and show the tracking code on the storefront's track-order page. | Saves typing every parcel by hand and lets customers track deliveries. | Both |
 | 23 | Real order pagination and search in the admin (plan feature 12). The admin downloads every order on every visit. | Slows down once there are thousands of orders. | Claude |
 | 24 | Audit log of who changed what (plan G3 and feature 3). | Needed once more than one person manages orders. | Claude |
 | 25 | Visitor analytics (Vercel Analytics or Google Analytics, with a cookie notice if required). | Tells you which sarees people look at and where they drop off. | Both |

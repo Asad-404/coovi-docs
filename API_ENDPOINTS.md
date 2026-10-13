@@ -71,7 +71,7 @@ Returns `{ success, message }` or `404`.
 
 ## Orders
 
-Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `createdAt`, `updatedAt`.
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `courier?` (`name` `"Steadfast"`, `consignmentId`, `trackingCode`, `status` (Steadfast's own delivery status, for example `in_review`, `pending`, `hold`, `delivered`, `cancelled`), `bookedAt`, `statusCheckedAt`; present once the parcel is booked), `createdAt`, `updatedAt`.
 Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`.
 
 ### `POST /orders` (public, guest checkout)
@@ -87,7 +87,7 @@ Returns `201 { data: Order }`. Errors: `400` for invalid data, a removed product
 Returns `{ data: { deliveryFee: number } }`, the same value orders are charged (`.env` `DELIVERY_FEE`, default 60).
 
 ### `GET /orders/:orderNumber?phone=01XXXXXXXXX` (public)
-Order number and phone together act as the guest's credentials. Missing phone returns `400`; wrong phone or unknown order returns the same `404 Order not found`.
+Order number and phone together act as the guest's credentials. The order includes `courier` (with the tracking code) once booked. Missing phone returns `400`; wrong phone or unknown order returns the same `404 Order not found`.
 
 ### `GET /orders` (admin)
 Query: `page` (1), `limit` (20, max 100), `status`; bad values fall back to defaults. Returns `{ data: Order[], pagination: { page, limit, total, pages } }`, newest first.
@@ -100,6 +100,19 @@ Body `{ "status": "<status>" }`. Orders only move forward: `Pending` to `Process
 - `Pending` to `Processing`: stock is decremented atomically for every line that is not a pre-order. A line whose stock ran out since the order was placed becomes a pre-order when its product has `allowPreorder`; otherwise the request returns `409` and nothing changes.
 - `Processing` to `Cancelled`: stock is restored for lines that are not pre-orders.
 - Pre-order lines never take or return stock: a piece bought for a pre-order is not added to `stock`.
+
+Cancelling an order booked with Steadfast does not cancel the parcel at Steadfast; that is done in the Steadfast merchant portal.
+
+### `POST /orders/:id/courier/steadfast` (admin)
+No body. Books the parcel with the Steadfast merchant API: invoice is the `orderNumber`, recipient name, phone, address and `notes` come from the order, and the cash to collect is the order's `total`. Only `Processing` orders can be booked. Returns `201 { data: Order }` with `courier` filled in. The order's own `status` does not change. Errors:
+- `409`: the order is not `Processing`, is already booked (the message names the tracking code), or is being booked by another request right now.
+- `400`: the address is longer than Steadfast's 250 characters (shorten it with `PATCH /orders/:id` first).
+- `404`: unknown order.
+- `502`: Steadfast refused the booking, timed out or could not be reached; the message carries Steadfast's reason and the order stays bookable.
+- `503 Steadfast courier is not configured on the server`: `STEADFAST_API_KEY` or `STEADFAST_SECRET_KEY` is missing.
+
+### `POST /orders/:id/courier/steadfast/refresh` (admin)
+No body. Asks Steadfast for the parcel's current delivery status and saves it in `courier.status` and `courier.statusCheckedAt`. Does not change the order's own `status`. Returns `{ data: Order }`, `409` if the order was never booked, `404`, `502` or `503` as above.
 
 ## Auth
 
@@ -118,6 +131,8 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
 ## Changelog
+
+- 2026-10-13: Steadfast courier booking. Orders gain an optional `courier` object; new admin routes `POST /orders/:id/courier/steadfast` and `POST /orders/:id/courier/steadfast/refresh` (coovi-api#18).
 
 - 2026-10-13: pre-orders. Products gain `allowPreorder` and `preorderDays`; order items gain `preorder` and `preorderDays` (coovi-api#9).
 
