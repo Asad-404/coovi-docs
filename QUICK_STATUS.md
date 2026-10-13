@@ -108,7 +108,7 @@ Admin features have a full implementation plan in `docs/ADMIN_FEATURE_PLAN.md` (
 2. Done, merged and live 2026-10-12: admin "Upload photos" button, stored on Cloudinary's free plan (cloud `ebhb5jfl`, folder `coovi/products`). `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` are set in `coovi-api/.env` and on Render; without them the button reports that upload is not configured. Owner tested an upload locally and on the live admin. Still open: deleting a product leaves its photos on Cloudinary.
 3. Delivery fee by area (inside vs outside Dhaka); today one flat `DELIVERY_FEE`.
 5. Admin: add a second admin account (change password is done).
-6. Admin orders: internal notes; real pagination (lists load 100).
+6. Admin orders: real pagination (lists load 100). Internal notes and change history are built and awaiting merge (coovi-api#16, coovi-admin#10).
 8. Categories (admin list + storefront category pages); everything is "Saree" now.
 9. Discount codes; reviews, wishlist, back-in-stock; Google structured data on product pages.
 10. Before launch: everything in `docs/GO_LIVE_CHECKLIST.md` (written 2026-10-13: production database, seed guard, backups, API that stays awake, storefront rate limit, order alerts, order lookup hardening, hosting terms, domain, error tracking, uptime alerts).
