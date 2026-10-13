@@ -1,7 +1,7 @@
 # COOVI Quick Status
 
 Last updated: 2026-10-13. All dev servers are **stopped**; nothing is running.
-Start here when resuming. API contract: `API_ENDPOINTS.md`.
+Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`.
 
 ## Waiting on you
 
@@ -111,7 +111,7 @@ Admin features have a full implementation plan in `docs/ADMIN_FEATURE_PLAN.md` (
 6. Admin orders: internal notes; real pagination (lists load 100).
 8. Categories (admin list + storefront category pages); everything is "Saree" now.
 9. Discount codes; reviews, wishlist, back-in-stock; Google structured data on product pages.
-10. Before launch: backups, error logging, uptime alerts.
+10. Before launch: everything in `docs/GO_LIVE_CHECKLIST.md` (written 2026-10-13: production database, seed guard, backups, API that stays awake, storefront rate limit, order alerts, order lookup hardening, hosting terms, domain, error tracking, uptime alerts).
 11. Optional: Diponty-style product attributes (color, fabric, work, length), hero banners managed from admin, Bengali copy, icon on mobile header.
 
 ## Policy pages (done 2026-10-04): owner must review
