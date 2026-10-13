@@ -114,7 +114,7 @@ Body `{ "status": "<status>" }`. Orders only move forward: `Pending` to `Process
 Cancelling an order booked with Steadfast does not cancel the parcel at Steadfast; that is done in the Steadfast merchant portal.
 
 ### `POST /orders/:id/courier/steadfast` (admin)
-No body. Books the parcel with the Steadfast merchant API: invoice is the `orderNumber`, recipient name, phone, address and `notes` come from the order, and the cash to collect is the order's `total`. Only `Processing` orders can be booked. Returns `201 { data: Order }` with `courier` filled in. The order's own `status` does not change. Errors:
+No body. Books the parcel with the Steadfast merchant API: invoice is the `orderNumber`, recipient name, phone, address (with the order's `district` added when the address doesn't name it) and `notes` come from the order, and the cash to collect is the order's `total`. Only `Processing` orders can be booked. Returns `201 { data: Order }` with `courier` filled in. The order's own `status` does not change. Errors:
 - `409`: the order is not `Processing`, is already booked (the message names the tracking code), or is being booked by another request right now.
 - `400`: the address is longer than Steadfast's 250 characters (shorten it with `PATCH /orders/:id` first).
 - `404`: unknown order.
