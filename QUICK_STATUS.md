@@ -7,11 +7,11 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 
 1. **Delete the old branches yourself** (Claude's delete was blocked on 2026-10-12). Every branch other than `master` in all three repos is the exact head of a merged pull request (checked 2026-10-12), so none holds unmerged work. See "Old branches to delete" below.
 2. **Delete the demo data yourself** (Claude's delete was blocked): product `test-saree` ("Updated Test Saree") and order `ORD-20260920-814` ("Smoke Test"). Use the admin panel for the product; the order needs Atlas (the admin has no delete-order button). Order `ORD-20260919-558` ("Test Customer") also looks like test data.
-3. **Policy pages: add your real terms** (return window, refund method, delivery time). See "Policy pages" below.
+3. **Policy pages: add your real terms** (delivery time; no returns after delivery, decided 2026-10-13). See "Policy pages" below.
 4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
    - Production database: in Atlas, create a new DB user (for example `coovi_prod`) with read/write on a new database named `coovi-prod` only, and keep the connection string ready.
    - Production secrets, saved in a password manager: a new `JWT_SECRET` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`), a production admin email and a strong admin password.
-   - Business details to tell Claude (not secrets): the real WhatsApp number, the delivery fee in BDT and the production admin email.
+   - Business details to tell Claude (not secrets): the real WhatsApp number, the delivery fees in BDT (inside Dhaka city, and outside Dhaka including suburbs) and the production admin email.
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
 
@@ -106,9 +106,9 @@ Admin features have a full implementation plan in `docs/ADMIN_FEATURE_PLAN.md` (
 0. Before launch (small): real WhatsApp number; owner review of the policy wording (below); replace remaining placeholder copy.
 1. Order notifications to the owner (email, SMS or WhatsApp). Nothing alerts you today.
 2. Done, merged and live 2026-10-12: admin "Upload photos" button, stored on Cloudinary's free plan (cloud `ebhb5jfl`, folder `coovi/products`). `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` are set in `coovi-api/.env` and on Render; without them the button reports that upload is not configured. Owner tested an upload locally and on the live admin. Still open: deleting a product leaves its photos on Cloudinary.
-3. Delivery fee by area (inside vs outside Dhaka); today one flat `DELIVERY_FEE`.
+3. Delivery fee by area: built, in review 2026-10-13 (coovi-api#14, coovi-admin#16, coovi-storefront#15). District dropdown at checkout; Dhaka city pays the inside fee, Dhaka suburbs and other districts the outside fee. Fees are placeholders (70 / 130) until you set `DELIVERY_FEE_INSIDE_DHAKA` and `DELIVERY_FEE_OUTSIDE_DHAKA` on Render. Merge the API first.
 5. Admin: add a second admin account (change password is done).
-6. Admin orders: internal notes; real pagination (lists load 100).
+6. Admin orders: real pagination (lists load 100). Internal notes and change history are built and awaiting merge (coovi-api#16, coovi-admin#10).
 8. Categories (admin list + storefront category pages); everything is "Saree" now.
 9. Discount codes; reviews, wishlist, back-in-stock; Google structured data on product pages.
 10. Before launch: everything in `docs/GO_LIVE_CHECKLIST.md` (written 2026-10-13: production database, seed guard, backups, API that stays awake, storefront rate limit, order alerts, order lookup hardening, hosting terms, domain, error tracking, uptime alerts).
