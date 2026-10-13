@@ -90,7 +90,8 @@ Returns `{ data: { deliveryFee: number } }`, the same value orders are charged (
 Order number and phone together act as the guest's credentials. Missing phone returns `400`; wrong phone or unknown order returns the same `404 Order not found`.
 
 ### `GET /orders` (admin)
-Query: `page` (1), `limit` (20, max 100), `status`; bad values fall back to defaults. Returns `{ data: Order[], pagination: { page, limit, total, pages } }`, newest first.
+Query: `page` (1), `limit` (20, max 100), `status`; bad values fall back to defaults. Returns `{ data: Order[], serverTime, pagination: { page, limit, total, pages } }`, newest first.
+`updatedSince` (optional, ISO date-time such as `2026-10-13T07:45:00.000Z`) returns only orders created or changed at or after that time, oldest change first; an invalid value returns `400`. `serverTime` is the server's clock when the request started: pass it as the next `updatedSince` so nothing is missed, whatever the client's own clock says.
 
 ### `PATCH /orders/:id` (admin)
 Corrects contact details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`. Items, prices and totals cannot be edited. Returns `{ data: Order }`, `404` if unknown, or `409` when the order is `Delivered` or `Cancelled`.
@@ -118,6 +119,8 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
 ## Changelog
+
+- 2026-10-13: `GET /orders` gains `updatedSince` and returns `serverTime`, so the admin refreshes only changed orders (coovi-api#10).
 
 - 2026-10-13: pre-orders. Products gain `allowPreorder` and `preorderDays`; order items gain `preorder` and `preorderDays` (coovi-api#9).
 
