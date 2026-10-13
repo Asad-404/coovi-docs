@@ -120,7 +120,7 @@ Admin features have a full implementation plan in `docs/ADMIN_FEATURE_PLAN.md` (
 
 ## Placeholders to replace before launch
 
-- WhatsApp number `8801700000000` (header, contact page, product page).
+- WhatsApp number `8801700000000` (header, contact page, product page). Once the shop settings pull requests (coovi-api#22, coovi-admin#14, coovi-storefront#13) are merged, change it on the admin Settings page; no code change or redeploy needed.
 - Pexels stock photos (replace with real saree photos using the admin "Upload photos" button); the logo is a text recreation, so use an SVG export of the real logo if available.
 - Generic care-guide copy on the product tabs; the delivery and "check before you pay" accordions now link to the policy pages.
 - Delete the `test-saree` demo product and the demo order.

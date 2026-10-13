@@ -14,10 +14,10 @@ Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi
 | | Have | Partial | Missing |
 |---|---|---|---|
 | Customer side (storefront) | 6 | 4 | 15 |
-| Running orders (admin) | 5 | 3 | 16 |
+| Running orders (admin) | 4 | 3 | 17 |
 | Selling and marketing | 0 | 1 | 5 |
 
-P1 gaps, in suggested build order (updated 2026-10-13 with the owner's answers below): new-order alerts by email, pre-orders, district and area at checkout with delivery fee by area, internal notes and status history, cancel and return with restock, Steadfast booking and tracking, shop settings page, order SMS to the customer, manual order entry.
+P1 gaps, in suggested build order (updated 2026-10-13 with the owner's answers below): new-order alerts by email, pre-orders, district and area at checkout with delivery fee by area, internal notes and status history, cancel and return with restock, Steadfast booking and tracking, cash collection from Steadfast, shop settings page, order SMS to the customer, manual order entry.
 
 ## Admin feature plan coverage
 
@@ -89,8 +89,8 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | **Courier booking and tracking number** (Steadfast, owner's choice) | Missing | P1 | 4 | Plan covers typing in the tracking number; booking the parcel through the courier's API is New. |
 | **Cancel and return with restock** | Partial | P1 | 2 | Cancel works before shipping. A parcel the customer refuses at the door, or a return after delivery, has no status and no restock. Owner accepts returns after delivery, so `Delivered -> Returned` stays in the plan. |
 | **Pre-orders** | Missing | P1 | New | Owner's rule: sell from stock when the saree is in stock; when it is not, take a pre-order that ships in at least 15 days. Needs a per-product "allow pre-order" switch and lead time, a clear "Pre-order, ships in about 15 days" label on the product page, cart and confirmation, pre-order orders marked in the admin, and stock that never goes below zero. Also answers what happens when two people order the last piece: the second becomes a pre-order instead of a failed confirmation. |
-| **Cash collection from couriers** | Have | P1 | New | Admin "Courier payments" page (built 2026-10-13): delivered orders the courier has not paid for yet, payouts typed in from the courier's statement with its charge and return costs per parcel, and any shortfall. Manual entry; importing Steadfast's payment statements automatically can come with the courier booking work. |
-| **Shop settings page** (fee, WhatsApp number, announcement text) | Missing | P1 | 6 | Today these need a code change or a Render variable. |
+| **Cash collection from couriers** | Built, in review | P1 | New | Pull requests coovi-api#20, coovi-admin#13 (2026-10-13). Admin "Courier payments" page: delivered orders the courier has not paid for yet, payouts typed in from the courier's statement with its charge and return costs per parcel, and any shortfall. Manual entry; importing Steadfast's payment statements automatically can come with the courier booking work. |
+| **Shop settings page** (WhatsApp number, support phone, announcement text, low-stock limit) | Built, in review | P1 | 6 | Pull requests coovi-api#22, coovi-admin#14, coovi-storefront#13 (2026-10-13). Delivery fees stay with the delivery-by-area work (owner decision 2026-10-13). |
 | Dashboard and reports | Partial | P2 | 11 | Revenue chart and totals exist; no profit, best sellers or return rate. |
 | Product cost price and profit | Missing | P2 | New | Needed for real profit numbers in reports. |
 | Customers list and repeat buyers | Missing | P2 | 8 | |
