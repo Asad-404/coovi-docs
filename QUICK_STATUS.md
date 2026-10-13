@@ -1,7 +1,7 @@
 # COOVI Quick Status
 
 Last updated: 2026-10-13. All dev servers are **stopped**; nothing is running.
-Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`.
+Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`. Missing business features: `docs/FEATURE_GAPS.md`.
 
 ## Waiting on you
 

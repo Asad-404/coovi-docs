@@ -33,6 +33,7 @@ Run Git commands, commits, and reviews inside the repository they concern. The w
 - `API_ENDPOINTS.md` — canonical contract shared by all three apps.
 - `tools/screenshot.mjs` — captures any page at phone or desktop width for design comparison.
 - `docs/ADMIN_FEATURE_PLAN.md` — implementation plan for the admin features in the backlog.
+- `docs/FEATURE_GAPS.md` — business features a real shop needs, marked have, partial or missing, with priorities.
 - `docs/GO_LIVE_CHECKLIST.md` — prioritized "needed before going live" list; add items when you find them.
 
 ## Manual resume commands
