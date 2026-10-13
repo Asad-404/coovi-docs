@@ -55,8 +55,8 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Order confirmation and order tracking by number and phone | Have | | | Shows status only, no courier tracking. |
 | Policy pages (returns, delivery, privacy, terms) | Have | | | Wording still needs your real terms (see `QUICK_STATUS.md`). |
 | SEO, share cards, sitemap | Have | | | |
-| **District and area at checkout** | Missing | P1 | 5 | Address is one free-text box. Couriers and area fees need district (and Dhaka inside or outside) as a choice. |
-| **Delivery fee by area** | Missing | P1 | 5 | One flat fee for the whole country today. |
+| **District and area at checkout** | Built, in review | P1 | 5 | District dropdown with a Dhaka city or suburbs choice. Pull requests coovi-api#14, coovi-admin#16, coovi-storefront#15 (2026-10-13). |
+| **Delivery fee by area** | Built, in review | P1 | 5 | Inside Dhaka city and outside Dhaka (suburbs included); placeholder fees 70 and 130 until the owner sets real ones. Same pull requests. |
 | **Order confirmation SMS to the customer** | Missing | P1 | New | Customers expect an SMS with the order number; it also cuts "did my order go through?" calls. Needs an SMS provider account (for example SSL Wireless, BulkSMSBD). |
 | WhatsApp and Messenger chat button | Partial | P1 | | WhatsApp link exists with the placeholder number; no Messenger. |
 | Contact form | Partial | P2 | | Contact page has a `mailto:support@coovi.com` link; that address only works once you own the domain. |
@@ -90,7 +90,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | **Cancel and return with restock** | Partial | P1 | 2 | Cancel works before shipping. A parcel the customer refuses at the door, or a return after delivery, has no status and no restock. Owner accepts returns after delivery, so `Delivered -> Returned` stays in the plan. |
 | **Pre-orders** | Missing | P1 | New | Owner's rule: sell from stock when the saree is in stock; when it is not, take a pre-order that ships in at least 15 days. Needs a per-product "allow pre-order" switch and lead time, a clear "Pre-order, ships in about 15 days" label on the product page, cart and confirmation, pre-order orders marked in the admin, and stock that never goes below zero. Also answers what happens when two people order the last piece: the second becomes a pre-order instead of a failed confirmation. |
 | **Cash collection from couriers** | Missing | P1 | New | Track which delivered parcels the courier has paid you for, their charge, and return costs. This is where COD shops lose money. |
-| **Shop settings page** (fee, WhatsApp number, announcement text) | Missing | P1 | 6 | Today these need a code change or a Render variable. |
+| **Shop settings page** (WhatsApp number, support phone, announcement text, low-stock limit) | Built, in review | P1 | 6 | Pull requests coovi-api#22, coovi-admin#14, coovi-storefront#13 (2026-10-13). Delivery fees stay with the delivery-by-area work (owner decision 2026-10-13). |
 | Dashboard and reports | Partial | P2 | 11 | Revenue chart and totals exist; no profit, best sellers or return rate. |
 | Product cost price and profit | Missing | P2 | New | Needed for real profit numbers in reports. |
 | Customers list and repeat buyers | Missing | P2 | 8 | |

@@ -72,31 +72,41 @@ Returns `{ success, message }` or `404`.
 
 ## Orders
 
-Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?` (the customer's own note), `createdAt`, `updatedAt`.
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `district?` (one of the 64 districts; missing on orders placed before delivery areas), `deliveryArea` (`inside_dhaka` or `outside_dhaka`; older orders without it count as `inside_dhaka`), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `discount` (taka off the items, `0` unless an admin agreed one on a manual order), `deliveryFee`, `total` (`subtotal - discount + deliveryFee`), `status`, `paymentMethod` (COD), `notes?` (the customer's own note), `source` (`website`, `facebook`, `whatsapp`, `phone` or `other`; orders saved before 2026-10-13 read as `website`), `createdBy?` (email of the admin who entered a manual order), `createdAt`, `updatedAt`.
 Admin-only fields, returned by the admin routes and never by `POST /orders` or `GET /orders/:orderNumber`: `internalNotes[]` (`text`, `by`, `byId`, `at`), `statusHistory[]` (`from?`, `to`, `by`, `byId?`, `at`) and `editHistory[]` (`changes[]` of `{ field, from?, to? }`, `by`, `byId`, `at`). `by` is the admin's email, or `customer` for the order being placed; `byId` is the admin id. All three are append-only and are empty arrays on orders placed before 2026-10-13.
 Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`.
 
 ### `POST /orders` (public, guest checkout)
 Body:
 ```json
-{ "customerName": "string", "phone": "01XXXXXXXXX", "address": "string (5-500)", "notes": "optional",
+{ "customerName": "string", "phone": "01XXXXXXXXX", "address": "string (5-500)",
+  "district": "Dhaka", "deliveryArea": "inside_dhaka", "notes": "optional",
   "items": [{ "productId": "string", "quantity": 1 }] }
 ```
-`phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock`) and has enough stock, adds `DELIVERY_FEE`, and stores the order as `Pending`. When stock is short and the product has `allowPreorder`, the whole line is stored with `preorder: true` and the product's `preorderDays` instead of being refused.
+`district` (one of the names in `GET /orders/delivery-fee` `districts`) and `deliveryArea` are optional so an older client still works. Only district `Dhaka` can be `inside_dhaka` (Dhaka city); Dhaka suburbs send `outside_dhaka`. Any other district is stored as `outside_dhaka` whatever is sent, and asking for `inside_dhaka` with it returns `400`. With neither field the order is `inside_dhaka`.
+`phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock`) and has enough stock, adds the delivery fee for the order's `deliveryArea`, and stores the order as `Pending`. When stock is short and the product has `allowPreorder`, the whole line is stored with `preorder: true` and the product's `preorderDays` instead of being refused.
 Records the first `statusHistory` entry (`to: Pending`, `by: customer`). Returns `201 { data: Order }` without the admin-only fields. Errors: `400` for invalid data, a removed product, a product switched off for sale, or insufficient stock (message names the product).
 
+### `POST /orders/manual` (admin)
+Enters an order taken by Facebook, WhatsApp or phone. Body (strict, unknown fields such as `total` or `price` rejected): the same fields as `POST /orders`, plus:
+```json
+{ "source": "facebook | whatsapp | phone | other", "deliveryFeeOverride": 0, "discount": 500 }
+```
+`source` is required. `district` and `deliveryArea` follow the checkout rule; the fee is the one for that area unless `deliveryFeeOverride` (optional, whole taka 0 to 10000) replaces it for this order. `discount` (optional, whole taka, default 0) comes off the items and cannot be more than the subtotal. Items are priced and checked exactly like `POST /orders` (database prices, `inStock`, stock or pre-order). The order is stored as `Pending` with `createdBy` set to the admin's email; confirming it takes stock like any other order. Not rate-limited, and it sends no new-order email.
+The first `statusHistory` entry names the admin who entered it. Returns `201 { data: Order }`. Errors: `400` for invalid data, a discount above the subtotal, or the same product and stock errors as checkout; `401` without an admin token.
+
 ### `GET /orders/delivery-fee` (public)
-Returns `{ data: { deliveryFee: number } }`, the same value orders are charged (`.env` `DELIVERY_FEE`, default 60).
+Returns `{ data: { deliveryFee, zones: { inside_dhaka, outside_dhaka }, districts: string[] } }`. `zones` holds the fee per area, the same amounts orders are charged; `deliveryFee` repeats the inside-Dhaka fee for older clients. `districts` is the 64-district list checkout offers. Fees come from `.env` `DELIVERY_FEE_INSIDE_DHAKA` and `DELIVERY_FEE_OUTSIDE_DHAKA` (placeholder defaults 70 and 130 until the owner sets real ones); the old `DELIVERY_FEE` is still read as the inside-Dhaka fee.
 
 ### `GET /orders/:orderNumber?phone=01XXXXXXXXX` (public)
 Order number and phone together act as the guest's credentials. Missing phone returns `400`, and so does anything other than exactly one phone in the checkout format (a repeated `?phone=`, an object, a malformed number); wrong phone or unknown order returns the same `404 Order not found`. The admin-only fields are left out.
 
 ### `GET /orders` (admin)
-Query: `page` (1), `limit` (20, max 100), `status`; bad values fall back to defaults. Returns `{ data: Order[], serverTime, pagination: { page, limit, total, pages } }`, newest first.
+Query: `page` (1), `limit` (20, max 100), `status`, `deliveryArea` (`inside_dhaka` also matches older orders without an area); bad values fall back to defaults. Returns `{ data: Order[], serverTime, pagination: { page, limit, total, pages } }`, newest first.
 `updatedSince` (optional, ISO date-time such as `2026-10-13T07:45:00.000Z`) returns only orders created or changed at or after that time, oldest change first; an invalid value returns `400`. `serverTime` is the server's clock when the request started: pass it as the next `updatedSince` so nothing is missed, whatever the client's own clock says.
 
 ### `PATCH /orders/:id` (admin)
-Corrects contact details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`. Items, prices and totals cannot be edited. Fields that really change are recorded in `editHistory` with their old and new values and the admin who changed them. Returns `{ data: Order }`, `404` if unknown, or `409` when the order is `Delivered` or `Cancelled`, or when someone else changed the same details at the same moment.
+Corrects contact and delivery details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`, `district`, `deliveryArea`. Items, prices and totals cannot be edited. `district` and `deliveryArea` follow the checkout rule and can change only while the order is `Pending` (`409` after). When the area changes, the API sets `deliveryFee` to the current fee for the new area (replacing any agreed manual fee) and recomputes `total`, keeping any `discount`; a district change within the same area keeps the fee charged at checkout. Fields that really change are recorded in `editHistory` with their old and new values and the admin who changed them, including a `deliveryFee` and `total` the API recomputed. Returns `{ data: Order }`, `400` for an inside-Dhaka area with another district, `404` if unknown, or `409` when the order is `Delivered` or `Cancelled`, or when someone else changed the same order at the same moment.
 
 ### `PATCH /orders/:id/status` (admin)
 Body `{ "status": "<status>" }`. Orders only move forward: `Pending` to `Processing` or `Cancelled`; `Processing` to `Shipped` or `Cancelled`; `Shipped` to `Delivered`. `Delivered` and `Cancelled` are final. Any other change, including the same status again, returns `409` naming the allowed statuses. When two admins change the same order at once, the second gets `409`. Each change adds a `statusHistory` entry in the same update, removed again if the change is refused for lack of stock. Stock rules:
@@ -123,9 +133,36 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 ### `POST /uploads/signature` (admin)
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
+## Settings
+
+Shop-wide settings the owner edits on the admin Settings page. One document, created with the defaults on first read and cached in the API for 60 seconds (a save clears the cache). Delivery fees are not here; see `GET /orders/delivery-fee`.
+
+| Field | Type | Default | Public |
+|---|---|---|---|
+| `whatsappNumber` | string, `8801[3-9]XXXXXXXX` | `8801700000000` (placeholder) | yes |
+| `supportPhone` | string, `01[3-9]XXXXXXXX` or `""` | `""` | yes |
+| `announcementText` | string, up to 120 characters | `Shop the festive collection` | yes |
+| `announcementActive` | boolean | `true` | yes |
+| `lowStockThreshold` | integer 0 to 1000; products with fewer pieces count as low stock | `6` | no |
+
+### `GET /settings` (public)
+Returns `{ data: { whatsappNumber, supportPhone, announcementText, announcementActive } }`. Never includes admin-only fields. The storefront caches it for 60 seconds and falls back to the defaults when the API is unreachable.
+
+### `GET /settings/admin` (admin)
+Returns `{ data: <every field above>, updatedAt }`.
+
+### `PATCH /settings` (admin)
+Body: any subset of the fields above (strict: unknown fields and an empty body return `400`). Returns `{ data: <every field>, message: "Settings saved" }`. Also `400` when the announcement would be switched on with empty text.
+
 ## Changelog
 
 - 2026-10-13: private order notes and change history. Added `POST /orders/:id/notes`; orders gain admin-only `internalNotes`, `statusHistory` and `editHistory`, left out of public responses (coovi-api#16).
+
+- 2026-10-13: delivery fee by area: orders gain `district` and `deliveryArea`; `GET /orders/delivery-fee` adds `zones` and `districts`; `GET /orders` filters by `deliveryArea`; `PATCH /orders/:id` can change the area while Pending (coovi-api#14, coovi-admin#16, coovi-storefront#15).
+
+- 2026-10-13: manual order entry: `POST /orders/manual`; orders gain `source`, `createdBy` and `discount` (coovi-api#21, coovi-admin#15, coovi-storefront#14).
+
+- 2026-10-13: shop settings: `GET /settings`, `GET /settings/admin`, `PATCH /settings` (coovi-api#22, coovi-admin#14, coovi-storefront#13).
 
 - 2026-10-13: storefront server rate limit via `x-coovi-storefront-key` and `x-coovi-client-ip` (coovi-api#19, coovi-storefront#11). Responses unchanged.
 
