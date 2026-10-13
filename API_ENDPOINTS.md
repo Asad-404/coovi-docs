@@ -117,7 +117,30 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 ### `POST /uploads/signature` (admin)
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
+## Courier payments
+
+Cash on delivery money reaches the shop through the courier, days after delivery, minus the courier's charges. These routes record each payout by hand from the courier's statement; they do not call any courier API. All routes are admin only. Money is in taka, rounded to 2 decimals on the server.
+
+Payment object: `{ _id, courier, paidAt, method?, reference?, lines: [{ order, orderNumber, orderTotal, collected, charge, net }], collectedTotal, chargeTotal, netTotal, amountReceived, difference, notes?, recordedBy?, createdAt, updatedAt }`. `orderTotal` is the order's total when the payment was recorded; `net = collected - charge` (negative for a refused parcel that only cost a return charge); `difference = amountReceived - netTotal` (anything but 0 means the money that arrived does not match the statement). `method` is one of `Bank transfer`, `bKash`, `Nagad`, `Cash`, `Other`.
+
+### `GET /courier-payments/unpaid` (admin)
+Delivered orders that no payment covers yet, oldest update first. Returns `{ data: { orders: [{ _id, orderNumber, customerName, phone, total, status, createdAt, updatedAt }], count, expectedTotal } }`; `expectedTotal` is the sum of the order totals.
+
+### `GET /courier-payments` (admin)
+Query: `page` (default 1), `limit` (default 20, max 100). Newest `paidAt` first. Returns `{ data: [payment], summary: { collectedTotal, chargeTotal, netTotal, amountReceived }, pagination }`; `summary` covers every payment, not just the page.
+
+### `GET /courier-payments/:id` (admin)
+One payment. `404` when missing, `400` for a malformed id.
+
+### `POST /courier-payments` (admin)
+Body (strict, unknown fields are a `400`): `paidAt` (date, not in the future), `lines: [{ orderNumber, collected, charge }]` (1 to 500), and optional `courier` (default `Steadfast`), `method`, `reference` (up to 100 characters), `amountReceived` (defaults to the computed net), `notes` (up to 500). The server looks up each order and computes `orderTotal`, every `net` and every total. Each order must be `Shipped` or `Delivered` (`400` otherwise or when not found), may appear once in the body (`400`) and in one payment ever (`409`; a unique index also blocks two admins recording it at the same moment). Returns `201` with the payment.
+
+### `DELETE /courier-payments/:id` (admin)
+Removes a payment entered by mistake; its orders show as unpaid again. `404` when missing.
+
 ## Changelog
+
+- 2026-10-13: added `/courier-payments` (record courier COD payouts by hand, list delivered orders still unpaid). Orders are unchanged.
 
 - 2026-10-13: pre-orders. Products gain `allowPreorder` and `preorderDays`; order items gain `preorder` and `preorderDays` (coovi-api#9).
 
