@@ -71,8 +71,8 @@ Returns `{ success, message }` or `404`.
 
 ## Orders
 
-Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `createdAt`, `updatedAt`.
-Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`.
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `cancelReason?` (why it was cancelled or returned), `deliveredAt?`, `returnedAt?`, `restocked?` (whether a return went back into stock), `refundAmount?`, `refundMethod?` (`bKash`, `Nagad`, `Cash`, `Bank transfer`, `Store credit`), `createdAt`, `updatedAt`.
+Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`, `Returned`.
 
 ### `POST /orders` (public, guest checkout)
 Body:
@@ -93,12 +93,20 @@ Order number and phone together act as the guest's credentials. Missing phone re
 Query: `page` (1), `limit` (20, max 100), `status`; bad values fall back to defaults. Returns `{ data: Order[], pagination: { page, limit, total, pages } }`, newest first.
 
 ### `PATCH /orders/:id` (admin)
-Corrects contact details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`. Items, prices and totals cannot be edited. Returns `{ data: Order }`, `404` if unknown, or `409` when the order is `Delivered` or `Cancelled`.
+Corrects contact details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`. Items, prices and totals cannot be edited. Returns `{ data: Order }`, `404` if unknown, or `409` when the order is `Delivered`, `Cancelled` or `Returned`.
 
 ### `PATCH /orders/:id/status` (admin)
-Body `{ "status": "<status>" }`. Orders only move forward: `Pending` to `Processing` or `Cancelled`; `Processing` to `Shipped` or `Cancelled`; `Shipped` to `Delivered`. `Delivered` and `Cancelled` are final. Any other change, including the same status again, returns `409` naming the allowed statuses. When two admins change the same order at once, the second gets `409`. Stock rules:
+Body `{ "status": "<status>", "reason"?, "restock"?, "refundAmount"?, "refundMethod"? }`. Orders only move forward: `Pending` to `Processing` or `Cancelled`; `Processing` to `Shipped` or `Cancelled`; `Shipped` to `Delivered` or `Returned` (parcel refused at the door); `Delivered` to `Returned` (return after delivery). `Cancelled` and `Returned` are final.
+
+- `reason` (max 300 characters, stored as `cancelReason`): required for `Returned`, optional for `Cancelled`, `400` on any other status.
+- `restock` (boolean, default `true`): `Returned` only. `false` leaves stock alone, for a saree that came back damaged.
+- `refundAmount` (whole taka, at most the order total) and `refundMethod`: `Delivered` to `Returned` only (a refused parcel was never paid for); a non-zero amount needs a method. Otherwise `400`.
+- Moving to `Delivered` sets `deliveredAt`; moving to `Returned` sets `returnedAt` and `restocked`.
+
+Any other change, including the same status again, returns `409` naming the allowed statuses. When two admins change the same order at once, the second gets `409`. Stock rules:
 - `Pending` to `Processing`: stock is decremented atomically for every line that is not a pre-order. A line whose stock ran out since the order was placed becomes a pre-order when its product has `allowPreorder`; otherwise the request returns `409` and nothing changes.
 - `Processing` to `Cancelled`: stock is restored for lines that are not pre-orders.
+- `Shipped` or `Delivered` to `Returned`: stock is restored for lines that are not pre-orders, unless `restock` is `false`.
 - Pre-order lines never take or return stock: a piece bought for a pre-order is not added to `stock`.
 
 ## Auth
@@ -118,6 +126,8 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
 ## Changelog
+
+- 2026-10-13: `Returned` status for refused parcels and returns after delivery, with stock put back; `PATCH /orders/:id/status` gains `reason`, `restock`, `refundAmount`, `refundMethod`; orders gain `cancelReason`, `deliveredAt`, `returnedAt`, `restocked`, `refundAmount`, `refundMethod` (coovi-api#17).
 
 - 2026-10-13: pre-orders. Products gain `allowPreorder` and `preorderDays`; order items gain `preorder` and `preorderDays` (coovi-api#9).
 
