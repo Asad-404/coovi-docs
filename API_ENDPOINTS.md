@@ -62,7 +62,7 @@ Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stoc
 `price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (admin)
-Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. Returns `{ data: Product }` or `404`.
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. Fields with a default fall back to it when left out: `category` becomes `Saree` and `inStock` becomes `true`, so always send `inStock` or a product switched off for sale goes back on sale. Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (admin)
 Returns `{ success, message }` or `404`.
@@ -115,6 +115,8 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
 ## Changelog
+
+- 2026-10-13: documented that `PUT /products/:id` resets `category` and `inStock` to their defaults when left out (behavior unchanged).
 
 - 2026-10-12: added `POST /uploads/signature` (admin photo upload through Cloudinary). The product `images` field is unchanged: still an array of URLs.
 
