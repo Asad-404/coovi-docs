@@ -11,7 +11,7 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
    - Production database: in Atlas, create a new DB user (for example `coovi_prod`) with read/write on a new database named `coovi-prod` only, and keep the connection string ready.
    - Production secrets, saved in a password manager: a new `JWT_SECRET` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`), a production admin email and a strong admin password.
-   - Business details to tell Claude (not secrets): the real WhatsApp number, the delivery fee in BDT and the production admin email.
+   - Business details to tell Claude (not secrets): the real WhatsApp number, the delivery fees in BDT (inside Dhaka city, and outside Dhaka including suburbs) and the production admin email.
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
 
@@ -106,7 +106,7 @@ Admin features have a full implementation plan in `docs/ADMIN_FEATURE_PLAN.md` (
 0. Before launch (small): real WhatsApp number; owner review of the policy wording (below); replace remaining placeholder copy.
 1. Order notifications to the owner (email, SMS or WhatsApp). Nothing alerts you today.
 2. Done, merged and live 2026-10-12: admin "Upload photos" button, stored on Cloudinary's free plan (cloud `ebhb5jfl`, folder `coovi/products`). `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` are set in `coovi-api/.env` and on Render; without them the button reports that upload is not configured. Owner tested an upload locally and on the live admin. Still open: deleting a product leaves its photos on Cloudinary.
-3. Delivery fee by area (inside vs outside Dhaka); today one flat `DELIVERY_FEE`.
+3. Delivery fee by area: built, in review 2026-10-13 (coovi-api#14, coovi-admin#16, coovi-storefront#15). District dropdown at checkout; Dhaka city pays the inside fee, Dhaka suburbs and other districts the outside fee. Fees are placeholders (70 / 130) until you set `DELIVERY_FEE_INSIDE_DHAKA` and `DELIVERY_FEE_OUTSIDE_DHAKA` on Render. Merge the API first.
 5. Admin: add a second admin account (change password is done).
 6. Admin orders: internal notes; real pagination (lists load 100).
 8. Categories (admin list + storefront category pages); everything is "Saree" now.
