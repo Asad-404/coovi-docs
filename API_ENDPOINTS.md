@@ -10,6 +10,7 @@ Source of truth is the code in `coovi-api/src/routes/`; update this file in the 
 - Money is whole BDT (integers). Dates are ISO strings.
 - Admin routes need `Authorization: Bearer <JWT>` (token from `POST /auth/login`, expires in 1 day). Missing or bad token returns `401`.
 - Rate limits (per IP): reads 100/min, login 5 per 15 min, order creation 20/hour, order lookup 20/min. Exceeding returns `429`.
+- The storefront server identifies itself with header `x-coovi-storefront-key` (equal to `STOREFRONT_API_KEY`, server-only on both sides). With it, `x-coovi-client-ip` is used as the shopper's IP for the limits above; without a shopper IP it gets its own bucket (reads 1000/min, order lookup 200/min). Browsers never send these headers.
 - CORS allows the origins in `CORS_ORIGINS` (default `http://localhost:3000`, `http://localhost:5173`).
 
 ## Authority rules
@@ -64,14 +65,14 @@ Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stoc
 `price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (admin)
-Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. Fields with a default fall back to it when left out: `category` becomes `Saree`, `inStock` becomes `true`, `allowPreorder` becomes `false` and `preorderDays` becomes `15`. Always send all four: otherwise a product switched off for sale goes back on sale, and a product taking pre-orders stops taking them. Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (admin)
 Returns `{ success, message }` or `404`.
 
 ## Orders
 
-Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `cancelReason?` (why it was cancelled or returned), `deliveredAt?`, `returnedAt?`, `restocked?` (whether a return went back into stock), `refundAmount?`, `refundMethod?` (`bKash`, `Nagad`, `Cash`, `Bank transfer`, `Store credit`), `createdAt`, `updatedAt`.
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `deliveryFee`, `total`, `status`, `paymentMethod` (COD), `notes?`, `cancelReason?` (why it was cancelled or the parcel came back), `returnedAt?`, `restocked?` (whether a refused parcel went back into stock), `createdAt`, `updatedAt`.
 Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`, `Returned`.
 
 ### `POST /orders` (public, guest checkout)
@@ -87,26 +88,26 @@ Returns `201 { data: Order }`. Errors: `400` for invalid data, a removed product
 Returns `{ data: { deliveryFee: number } }`, the same value orders are charged (`.env` `DELIVERY_FEE`, default 60).
 
 ### `GET /orders/:orderNumber?phone=01XXXXXXXXX` (public)
-Order number and phone together act as the guest's credentials. Missing phone returns `400`; wrong phone or unknown order returns the same `404 Order not found`.
+Order number and phone together act as the guest's credentials. Missing phone returns `400`, and so does anything other than exactly one phone in the checkout format (a repeated `?phone=`, an object, a malformed number); wrong phone or unknown order returns the same `404 Order not found`.
 
 ### `GET /orders` (admin)
-Query: `page` (1), `limit` (20, max 100), `status`; bad values fall back to defaults. Returns `{ data: Order[], pagination: { page, limit, total, pages } }`, newest first.
+Query: `page` (1), `limit` (20, max 100), `status`; bad values fall back to defaults. Returns `{ data: Order[], serverTime, pagination: { page, limit, total, pages } }`, newest first.
+`updatedSince` (optional, ISO date-time such as `2026-10-13T07:45:00.000Z`) returns only orders created or changed at or after that time, oldest change first; an invalid value returns `400`. `serverTime` is the server's clock when the request started: pass it as the next `updatedSince` so nothing is missed, whatever the client's own clock says.
 
 ### `PATCH /orders/:id` (admin)
 Corrects contact details. Body (strict, unknown fields rejected, at least one field): `customerName`, `phone`, `address`, `notes`. Items, prices and totals cannot be edited. Returns `{ data: Order }`, `404` if unknown, or `409` when the order is `Delivered`, `Cancelled` or `Returned`.
 
 ### `PATCH /orders/:id/status` (admin)
-Body `{ "status": "<status>", "reason"?, "restock"?, "refundAmount"?, "refundMethod"? }`. Orders only move forward: `Pending` to `Processing` or `Cancelled`; `Processing` to `Shipped` or `Cancelled`; `Shipped` to `Delivered` or `Returned` (parcel refused at the door); `Delivered` to `Returned` (return after delivery). `Cancelled` and `Returned` are final.
+Body `{ "status": "<status>", "reason"?, "restock"? }`. Orders only move forward: `Pending` to `Processing` or `Cancelled`; `Processing` to `Shipped` or `Cancelled`; `Shipped` to `Delivered` or `Returned` (parcel refused at the door). `Delivered`, `Cancelled` and `Returned` are final: the shop takes no returns after delivery (customers check the parcel before paying).
 
 - `reason` (max 300 characters, stored as `cancelReason`): required for `Returned`, optional for `Cancelled`, `400` on any other status.
 - `restock` (boolean, default `true`): `Returned` only. `false` leaves stock alone, for a saree that came back damaged.
-- `refundAmount` (whole taka, at most the order total) and `refundMethod`: `Delivered` to `Returned` only (a refused parcel was never paid for); a non-zero amount needs a method. Otherwise `400`.
-- Moving to `Delivered` sets `deliveredAt`; moving to `Returned` sets `returnedAt` and `restocked`.
+- Moving to `Returned` sets `returnedAt` and `restocked`.
 
 Any other change, including the same status again, returns `409` naming the allowed statuses. When two admins change the same order at once, the second gets `409`. Stock rules:
 - `Pending` to `Processing`: stock is decremented atomically for every line that is not a pre-order. A line whose stock ran out since the order was placed becomes a pre-order when its product has `allowPreorder`; otherwise the request returns `409` and nothing changes.
 - `Processing` to `Cancelled`: stock is restored for lines that are not pre-orders.
-- `Shipped` or `Delivered` to `Returned`: stock is restored for lines that are not pre-orders, unless `restock` is `false`.
+- `Shipped` to `Returned`: stock is restored for lines that are not pre-orders, unless `restock` is `false`.
 - Pre-order lines never take or return stock: a piece bought for a pre-order is not added to `stock`.
 
 ## Auth
@@ -125,9 +126,38 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 ### `POST /uploads/signature` (admin)
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
+## Settings
+
+Shop-wide settings the owner edits on the admin Settings page. One document, created with the defaults on first read and cached in the API for 60 seconds (a save clears the cache). Delivery fees are not here; see `GET /orders/delivery-fee`.
+
+| Field | Type | Default | Public |
+|---|---|---|---|
+| `whatsappNumber` | string, `8801[3-9]XXXXXXXX` | `8801700000000` (placeholder) | yes |
+| `supportPhone` | string, `01[3-9]XXXXXXXX` or `""` | `""` | yes |
+| `announcementText` | string, up to 120 characters | `Shop the festive collection` | yes |
+| `announcementActive` | boolean | `true` | yes |
+| `lowStockThreshold` | integer 0 to 1000; products with fewer pieces count as low stock | `6` | no |
+
+### `GET /settings` (public)
+Returns `{ data: { whatsappNumber, supportPhone, announcementText, announcementActive } }`. Never includes admin-only fields. The storefront caches it for 60 seconds and falls back to the defaults when the API is unreachable.
+
+### `GET /settings/admin` (admin)
+Returns `{ data: <every field above>, updatedAt }`.
+
+### `PATCH /settings` (admin)
+Body: any subset of the fields above (strict: unknown fields and an empty body return `400`). Returns `{ data: <every field>, message: "Settings saved" }`. Also `400` when the announcement would be switched on with empty text.
+
 ## Changelog
 
-- 2026-10-13: `Returned` status for refused parcels and returns after delivery, with stock put back; `PATCH /orders/:id/status` gains `reason`, `restock`, `refundAmount`, `refundMethod`; orders gain `cancelReason`, `deliveredAt`, `returnedAt`, `restocked`, `refundAmount`, `refundMethod` (coovi-api#17).
+- 2026-10-13: `Returned` status for parcels refused at the door, with stock put back; `PATCH /orders/:id/status` gains `reason` and `restock`; orders gain `cancelReason`, `returnedAt`, `restocked`. No returns after delivery: `Delivered` stays final (coovi-api#17).
+
+- 2026-10-13: shop settings: `GET /settings`, `GET /settings/admin`, `PATCH /settings` (coovi-api#22, coovi-admin#14, coovi-storefront#13).
+
+- 2026-10-13: storefront server rate limit via `x-coovi-storefront-key` and `x-coovi-client-ip` (coovi-api#19, coovi-storefront#11). Responses unchanged.
+
+- 2026-10-13: `PUT /products/:id` keeps `category`, `inStock`, `allowPreorder` and `preorderDays` when left out instead of resetting them to their defaults (coovi-api#13).
+
+- 2026-10-13: `GET /orders` gains `updatedSince` and returns `serverTime`, so the admin refreshes only changed orders (coovi-api#10).
 
 - 2026-10-13: pre-orders. Products gain `allowPreorder` and `preorderDays`; order items gain `preorder` and `preorderDays` (coovi-api#9).
 
