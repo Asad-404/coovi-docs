@@ -140,7 +140,7 @@ Removes a payment entered by mistake; its orders show as unpaid again. `404` whe
 
 ## Changelog
 
-- 2026-10-13: added `/courier-payments` (record courier COD payouts by hand, list delivered orders still unpaid). Orders are unchanged.
+- 2026-10-13: added `/courier-payments` (record courier COD payouts by hand, list delivered orders still unpaid). Orders are unchanged (coovi-api#20, coovi-admin#13).
 
 - 2026-10-13: pre-orders. Products gain `allowPreorder` and `preorderDays`; order items gain `preorder` and `preorderDays` (coovi-api#9).
 
