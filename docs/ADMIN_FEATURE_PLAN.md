@@ -101,18 +101,17 @@ Today a `Shipped` order can only become `Delivered`. A parcel refused at the doo
 
 **API**
 - `Order.status` enum: add `Returned`.
-- New transitions in `NEXT_STATUSES`: `Shipped: ['Delivered', 'Returned']`, `Delivered: ['Returned']`, `Returned: []`.
+- New transitions in `NEXT_STATUSES`: `Shipped: ['Delivered', 'Returned']`, `Returned: []`. `Delivered` stays final: the owner takes no returns after delivery (decided 2026-10-13).
 - `PATCH /api/orders/:id/status` body gains optional `reason` (string, max 300) and `restock` (boolean, default `true`).
-  - `reason` is required when the new status is `Cancelled` or `Returned`.
-  - `Shipped -> Returned`: stock goes back (the parcel came back unopened).
-  - `Delivered -> Returned`: stock goes back only when `restock` is true, because the item may be damaged.
+  - `reason` is required for `Returned` and optional for `Cancelled` (built that way so the live admin keeps working).
+  - `Shipped -> Returned`: stock goes back unless `restock` is false (parcel came back damaged).
 - New order fields: `cancelReason?: string`, `returnedAt?: Date`.
 - `FINAL_STATUSES` (frozen details): add `Returned`.
 - Fixed reason list offered by the admin, stored as text: customer refused, customer unreachable, wrong address, changed mind, damaged, out of stock, duplicate order, other.
 
 **Admin**
 - `types/index.ts` and `utils/orderStatus.ts`: add `Returned` (chip colour `secondary`) and the new transitions.
-- `OrderDetailModal.tsx`: choosing Cancelled or Returned opens a small dialog with a reason dropdown, optional free text, and a "Put stock back" checkbox for `Delivered -> Returned`.
+- `OrderDetailModal.tsx`: choosing Cancelled or Returned opens a small dialog with a reason dropdown, optional free text, and a "Put stock back" checkbox for `Shipped -> Returned`.
 - `utils/dashboardStats.ts`: revenue counts `Delivered` only and excludes `Returned`; add a "Returned" count card.
 - `utils/orderExport.ts`: add a Reason column.
 
@@ -527,7 +526,7 @@ Split in two, because the first half is cheap and the second is the biggest chan
 ## Open questions for the owner
 
 1. **Alerts**: Telegram, email, or both? Telegram is the quickest to set up.
-2. **Returns**: is a return after delivery something the shop accepts? If not, drop `Delivered -> Returned`. This also decides the wording on `/return-policy`.
+2. **Returns**: answered 2026-10-13: no returns after delivery, so `Delivered -> Returned` was dropped.
 3. **Delivery areas**: are two zones enough, or is a third (Dhaka suburbs) needed? Which couriers will be used?
 4. **Blocked customers**: refuse the order outright, or accept it and flag it for a confirmation call?
 5. **Variants**: does the shop stock the same design in several colours, or is each saree one of a kind? This decides whether 9b is ever needed.
