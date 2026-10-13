@@ -64,7 +64,7 @@ Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stoc
 `price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (admin)
-Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. Returns `{ data: Product }` or `404`.
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. Fields with a default fall back to it when left out: `category` becomes `Saree`, `inStock` becomes `true`, `allowPreorder` becomes `false` and `preorderDays` becomes `15`. Always send all four: otherwise a product switched off for sale goes back on sale, and a product taking pre-orders stops taking them. Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (admin)
 Returns `{ success, message }` or `404`.
@@ -120,6 +120,8 @@ No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }`
 ## Changelog
 
 - 2026-10-13: pre-orders. Products gain `allowPreorder` and `preorderDays`; order items gain `preorder` and `preorderDays` (coovi-api#9).
+
+- 2026-10-13: documented that `PUT /products/:id` resets `category`, `inStock`, `allowPreorder` and `preorderDays` to their defaults when left out (behavior unchanged).
 
 - 2026-10-12: added `POST /uploads/signature` (admin photo upload through Cloudinary). The product `images` field is unchanged: still an array of URLs.
 
