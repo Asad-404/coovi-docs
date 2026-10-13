@@ -87,7 +87,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | **Manual order entry** | Missing | P1 | 14 | Many orders arrive by Facebook message or phone; today they cannot go into the system, so stock and reports are wrong. |
 | **Internal notes and status history** | Built, awaiting merge | P1 | 3 | Private notes, status history and detail-edit history with who and when: coovi-api#16, coovi-admin#10. |
 | **Courier booking and tracking number** (Steadfast, owner's choice) | Missing | P1 | 4 | Plan covers typing in the tracking number; booking the parcel through the courier's API is New. |
-| **Cancel and return with restock** | Partial | P1 | 2 | Cancel works before shipping. A parcel the customer refuses at the door, or a return after delivery, has no status and no restock. Owner accepts returns after delivery, so `Delivered -> Returned` stays in the plan. |
+| **Cancel and return with restock** | Have (in review) | P1 | 2 | `Returned` status for parcels refused at the door, with reason and restock (coovi-api#17, coovi-admin#11). No returns after delivery (owner decision). Customer-requested cancellation is still P3. |
 | **Pre-orders** | Missing | P1 | New | Owner's rule: sell from stock when the saree is in stock; when it is not, take a pre-order that ships in at least 15 days. Needs a per-product "allow pre-order" switch and lead time, a clear "Pre-order, ships in about 15 days" label on the product page, cart and confirmation, pre-order orders marked in the admin, and stock that never goes below zero. Also answers what happens when two people order the last piece: the second becomes a pre-order instead of a failed confirmation. |
 | **Cash collection from couriers** | Missing | P1 | New | Track which delivered parcels the courier has paid you for, their charge, and return costs. This is where COD shops lose money. |
 | **Shop settings page** (WhatsApp number, support phone, announcement text, low-stock limit) | Built, in review | P1 | 6 | Pull requests coovi-api#22, coovi-admin#14, coovi-storefront#13 (2026-10-13). Delivery fees stay with the delivery-by-area work (owner decision 2026-10-13). |
@@ -123,7 +123,7 @@ Answered by the owner on 2026-10-13:
 2. Courier: Steadfast.
 3. New-order alerts: WhatsApp or email. Email first, WhatsApp later.
 4. Stock: not decided between one-of-a-kind and restocking. For now: sell from stock when in stock, otherwise take a pre-order that ships in at least 15 days (see "Pre-orders").
-5. Returns after delivery: yes, accepted.
+5. Returns after delivery: not accepted for now (changed 2026-10-13). Customers check the saree in front of the rider and refuse the parcel if something is wrong; a refused parcel's stock goes back.
 6. Facebook ads: maybe later, not during development. Facebook Pixel moves to P2.
 
-Still open: the return window in days and how refunds are paid (cash, bKash), which the return policy page needs.
+No return window or refund method is needed while returns after delivery are off.
