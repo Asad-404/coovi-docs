@@ -119,7 +119,30 @@ Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must 
 ### `POST /uploads/signature` (admin)
 No body. Returns `{ data: { cloudName, apiKey, timestamp, folder, signature } }` so the admin panel can send a product photo straight to Cloudinary (`POST https://api.cloudinary.com/v1_1/<cloudName>/image/upload` with `file`, `api_key`, `timestamp`, `folder`, `signature`). The photo never passes through this API and the Cloudinary secret is never returned. Cloudinary accepts a signature for about 1 hour. Its `secure_url` reply is what goes into the product's `images`. Returns `503 Image upload is not configured on the server` when the `CLOUDINARY_*` variables are missing.
 
+## Settings
+
+Shop-wide settings the owner edits on the admin Settings page. One document, created with the defaults on first read and cached in the API for 60 seconds (a save clears the cache). Delivery fees are not here; see `GET /orders/delivery-fee`.
+
+| Field | Type | Default | Public |
+|---|---|---|---|
+| `whatsappNumber` | string, `8801[3-9]XXXXXXXX` | `8801700000000` (placeholder) | yes |
+| `supportPhone` | string, `01[3-9]XXXXXXXX` or `""` | `""` | yes |
+| `announcementText` | string, up to 120 characters | `Shop the festive collection` | yes |
+| `announcementActive` | boolean | `true` | yes |
+| `lowStockThreshold` | integer 0 to 1000; products with fewer pieces count as low stock | `6` | no |
+
+### `GET /settings` (public)
+Returns `{ data: { whatsappNumber, supportPhone, announcementText, announcementActive } }`. Never includes admin-only fields. The storefront caches it for 60 seconds and falls back to the defaults when the API is unreachable.
+
+### `GET /settings/admin` (admin)
+Returns `{ data: <every field above>, updatedAt }`.
+
+### `PATCH /settings` (admin)
+Body: any subset of the fields above (strict: unknown fields and an empty body return `400`). Returns `{ data: <every field>, message: "Settings saved" }`. Also `400` when the announcement would be switched on with empty text.
+
 ## Changelog
+
+- 2026-10-13: shop settings: `GET /settings`, `GET /settings/admin`, `PATCH /settings` (coovi-api#22, coovi-admin#14, coovi-storefront#13).
 
 - 2026-10-13: storefront server rate limit via `x-coovi-storefront-key` and `x-coovi-client-ip` (coovi-api#19, coovi-storefront#11). Responses unchanged.
 
