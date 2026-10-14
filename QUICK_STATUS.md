@@ -111,7 +111,7 @@ Admin features have a full implementation plan in `docs/ADMIN_FEATURE_PLAN.md` (
 6. Admin orders: real pagination (lists load 100). Internal notes and change history are built and awaiting merge (coovi-api#16, coovi-admin#10).
 8. Categories (admin list + storefront category pages); everything is "Saree" now.
 9. Discount codes; reviews, wishlist, back-in-stock; Google structured data on product pages.
-10. Before launch: everything in `docs/GO_LIVE_CHECKLIST.md` (written 2026-10-13: production database, seed guard, backups, API that stays awake, storefront rate limit, order alerts, order lookup hardening, hosting terms, domain, error tracking, uptime alerts).
+10. Before launch: everything in `docs/GO_LIVE_CHECKLIST.md` (written 2026-10-13: production database, seed guard, backups, API that stays awake, storefront rate limit, order alerts, order lookup hardening, hosting terms, domain, error tracking, uptime alerts; security review items 26 and 29 to 37 added 2026-10-13, with the Next.js upgrade (item 29) in Priority 1).
 11. Optional: Diponty-style product attributes (color, fabric, work, length), hero banners managed from admin, Bengali copy, icon on mobile header.
 
 ## Policy pages (done 2026-10-04): owner must review
