@@ -27,7 +27,7 @@ The API is the source of truth for prices, stock, delivery fee, order totals, or
 | `description?`, `descriptionBn?` | string | up to 2000 chars |
 | `price` | number | **current selling price**; what orders charge |
 | `compareAtPrice?` | number | original price before a discount. The product is **on sale** when `compareAtPrice > price` |
-| `images` | string[] | at least 1 URL |
+| `images` | string[] | at least 1 `https://` URL |
 | `size?` | string | |
 | `category` | string | default `Saree` |
 | `stock` | number | |
@@ -72,8 +72,8 @@ Returns `{ success, message }` or `404`.
 
 ## Orders
 
-Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `district?` (one of the 64 districts; missing on orders placed before delivery areas), `deliveryArea` (`inside_dhaka` or `outside_dhaka`; older orders without it count as `inside_dhaka`), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `discount` (taka off the items, `0` unless an admin agreed one on a manual order), `deliveryFee`, `total` (`subtotal - discount + deliveryFee`), `status`, `paymentMethod` (COD), `notes?` (the customer's own note), `source` (`website`, `facebook`, `whatsapp`, `phone` or `other`; orders saved before 2026-10-13 read as `website`), `createdBy?` (email of the admin who entered a manual order), `courier?` (`name` `"Steadfast"`, `consignmentId`, `trackingCode`, `status` (Steadfast's own delivery status, for example `in_review`, `pending`, `hold`, `delivered`, `cancelled`), `bookedAt`, `statusCheckedAt`; present once the parcel is booked), `returnedAt?`, `createdAt`, `updatedAt`.
-Admin-only fields, returned by the admin routes and never by `POST /orders` or `GET /orders/:orderNumber`: `internalNotes[]` (`text`, `by`, `byId`, `at`), `statusHistory[]` (`from?`, `to`, `by`, `byId?`, `at`) `editHistory[]` (`changes[]` of `{ field, from?, to? }`, `by`, `byId`, `at`), `cancelReason?` (why it was cancelled or the parcel came back) and `restocked?` (whether a refused parcel went back into stock). `by` is the admin's email, or `customer` for the order being placed; `byId` is the admin id. All three are append-only and are empty arrays on orders placed before 2026-10-13.
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `district?` (one of the 64 districts; missing on orders placed before delivery areas), `deliveryArea` (`inside_dhaka` or `outside_dhaka`; older orders without it count as `inside_dhaka`), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `discount` (taka off the items, `0` unless an admin agreed one on a manual order), `deliveryFee`, `total` (`subtotal - discount + deliveryFee`), `status`, `paymentMethod` (COD), `notes?` (the customer's own note), `source` (`website`, `facebook`, `whatsapp`, `phone` or `other`; orders saved before 2026-10-13 read as `website`), `courier?` (`name` `"Steadfast"`, `consignmentId`, `trackingCode`, `status` (Steadfast's own delivery status, for example `in_review`, `pending`, `hold`, `delivered`, `cancelled`), `bookedAt`, `statusCheckedAt`; present once the parcel is booked), `returnedAt?`, `createdAt`, `updatedAt`.
+Admin-only fields, returned by the admin routes and never by `POST /orders` or `GET /orders/:orderNumber`: `internalNotes[]` (`text`, `by`, `byId`, `at`), `statusHistory[]` (`from?`, `to`, `by`, `byId?`, `at`) `editHistory[]` (`changes[]` of `{ field, from?, to? }`, `by`, `byId`, `at`), `cancelReason?` (why it was cancelled or the parcel came back) `restocked?` (whether a refused parcel went back into stock) and `createdBy?` (email of the admin who entered a manual order). `by` is the admin's email, or `customer` for the order being placed; `byId` is the admin id. All three are append-only and are empty arrays on orders placed before 2026-10-13.
 Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`, `Returned`.
 
 ### `POST /orders` (public, guest checkout)
@@ -174,9 +174,34 @@ Returns `{ data: <every field above>, updatedAt }`.
 ### `PATCH /settings` (admin)
 Body: any subset of the fields above (strict: unknown fields and an empty body return `400`). Returns `{ data: <every field>, message: "Settings saved" }`. Also `400` when the announcement would be switched on with empty text.
 
+## Courier payments
+
+Cash on delivery money reaches the shop through the courier, days after delivery, minus the courier's charges. These routes record each payout by hand from the courier's statement; they do not call any courier API. All routes are admin only. Money is in taka, rounded to 2 decimals on the server.
+
+Payment object: `{ _id, courier, paidAt, method?, reference?, lines: [{ order, orderNumber, orderTotal, collected, charge, net }], collectedTotal, chargeTotal, netTotal, amountReceived, difference, notes?, recordedBy?, createdAt, updatedAt }`. `orderTotal` is the order's total when the payment was recorded; `net = collected - charge` (negative for a refused parcel that only cost a return charge); `difference = amountReceived - netTotal` (anything but 0 means the money that arrived does not match the statement). `method` is one of `Bank transfer`, `bKash`, `Nagad`, `Cash`, `Other`.
+
+### `GET /courier-payments/unpaid` (admin)
+Delivered orders that no payment covers yet, oldest update first. Returns `{ data: { orders: [{ _id, orderNumber, customerName, phone, total, status, createdAt, updatedAt }], count, expectedTotal } }`; `expectedTotal` is the sum of the order totals.
+
+### `GET /courier-payments` (admin)
+Query: `page` (default 1), `limit` (default 20, max 100). Newest `paidAt` first. Returns `{ data: [payment], summary: { collectedTotal, chargeTotal, netTotal, amountReceived }, pagination }`; `summary` covers every payment, not just the page.
+
+### `GET /courier-payments/:id` (admin)
+One payment. `404` when missing, `400` for a malformed id.
+
+### `POST /courier-payments` (admin)
+Body (strict, unknown fields are a `400`): `paidAt` (date, not in the future), `lines: [{ orderNumber, collected, charge }]` (1 to 500), and optional `courier` (default `Steadfast`), `method`, `reference` (up to 100 characters), `amountReceived` (defaults to the computed net), `notes` (up to 500). The server looks up each order and computes `orderTotal`, every `net` and every total. Each order must be `Shipped`, `Delivered` or `Returned` (`400` otherwise or when not found), may appear once in the body (`400`) and in one payment ever (`409`; a unique index also blocks two admins recording it at the same moment). Returns `201` with the payment.
+
+### `DELETE /courier-payments/:id` (admin)
+Removes a payment entered by mistake; its orders show as unpaid again. `404` when missing.
+
 ## Changelog
 
 - 2026-10-13: Steadfast courier booking. Orders gain an optional `courier` object; new admin routes `POST /orders/:id/courier/steadfast` and `POST /orders/:id/courier/steadfast/refresh` (coovi-api#18).
+
+- 2026-10-13: security review fixes: `createdBy` is now admin-only (left out of `POST /orders` and `GET /orders/:orderNumber`); product `images` must be `https://`; `POST /auth/login` returns `400` for non-string fields; duplicate product lines in an order are merged before the stock check (coovi-api#23).
+
+- 2026-10-13: added `/courier-payments` (record courier COD payouts by hand, list delivered orders still unpaid). Orders are unchanged (coovi-api#20, coovi-admin#13).
 
 - 2026-10-13: `Returned` status for parcels refused at the door, with stock put back; `PATCH /orders/:id/status` gains `reason` and `restock`; orders gain `returnedAt` and admin-only `cancelReason` and `restocked`. No returns after delivery: `Delivered` stays final (coovi-api#17).
 

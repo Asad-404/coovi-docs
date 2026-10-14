@@ -11,6 +11,8 @@ What has to change before Coovi takes real orders from real customers. Written 2
 
 What is already in good shape (no action needed): prices, totals and the delivery fee are computed by the API, never trusted from the browser; order status only moves forward and stock changes are safe when two admins click at once; the API refuses to start in production with a weak secret, weak admin password or localhost CORS; login, checkout and order lookup are rate limited; all three repos have CI with tests.
 
+Items 26 and 29 to 37 come from the security review of 2026-10-13 (all three apps on `master`). The full report, with file and line evidence, is in the project files as `security/SECURITY_REVIEW_2026-10-13.md`.
+
 ## Priority 1: before taking real orders
 
 | # | Item | Why it matters | Who |
@@ -27,6 +29,7 @@ What is already in good shape (no action needed): prices, totals and the deliver
 | 10 | **Production secrets and admin.** New `JWT_SECRET`, production admin email and strong password, saved in a password manager (`QUICK_STATUS.md` item 4). | The dev admin password has been typed on laptops and in chats during development. | You |
 | 11 | **Business details and placeholders.** Real WhatsApp number (placeholder `8801700000000`), delivery fee, real photos, policy wording with your delivery times (returns after delivery are off, decided 2026-10-13), and removal of the demo product and orders. | Customers will message the placeholder number and read promises the shop cannot keep. | You (tell Claude the values; Claude updates the code) |
 | 12 | **Legal registration.** Check what Bangladesh requires of an online shop (trade licence, e-commerce registration under the Digital Commerce guidelines, how prices, delivery times and refunds must be shown) with an accountant or lawyer. Inferred from general knowledge, not checked against the current rules. | Unregistered online sellers can be fined or delisted by payment and courier partners. | You |
+| 29 | **Upgrade Next.js in the storefront.** Found by the 2026-10-13 security review: `next` 16.3.5 has 9 published advisories (1 critical, 3 high), including remote code execution in `next/og` and request forgery in the image optimizer; `sharp` 0.35.4 also has a high one. Upgrade to `next` 16.3.8 or later. | Publicly known holes on the shop's front door. Our share images use fixed text, so the critical one is probably hard to exploit here (inferred, not tested), but the fix is a version bump. | Claude |
 
 ## Priority 2: first weeks after launch
 
@@ -41,6 +44,11 @@ What is already in good shape (no action needed): prices, totals and the deliver
 | 19 | **Customer data handling.** The orders CSV export puts every name, phone and address on your laptop; Atlas network access is probably open to every address (Render's free plan has no fixed IP). | A lost laptop or a leaked database password exposes customers. Keep exports in an encrypted folder and delete old ones, use a long Atlas password for the production user, and decide how long to keep old orders. | You |
 | 20 | **Fixed in coovi-api PR #12 (merged 2026-10-13).** **Order numbers use UTC dates.** Orders placed between midnight and 6 am Bangladesh time get the previous day's date. | Confusing when matching orders to days. Small fix with item 7. | Claude |
 | 21 | **Hide the admin from search engines.** The admin site has no `noindex`. | The login page can show up in Google. | Claude |
+| 26 | **Security headers on the admin and storefront.** Moved up from Priority 3 by the 2026-10-13 security review. The admin sends no `X-Frame-Options` or Content Security Policy, so another site can show it in a hidden frame and trick you into clicking (clickjacking); a CSP is also the safety net that keeps the admin token in browser storage (item 18) from being stolen if a script-injection bug is ever added. | Small config change in `vercel.json` (admin) and `next.config.ts` (storefront); do it with item 21. | Claude |
+| 30 | **Automatic dependency security alerts.** No repo has Dependabot, and CI does not run `pnpm audit`, so item 29 was only found by hand. Add `.github/dependabot.yml` to each repo and turn on Dependabot alerts in each repo's GitHub settings (Settings → Code security). | The next published hole in a dependency would otherwise sit unnoticed. | Both: Claude adds the config; you switch on the alerts |
+| 31 | **Fake orders can use up the email alert quota.** Every website order sends one email, and checkout allows 20 orders an hour per IP; Resend's free plan sends about 100 emails a day. | A burst of junk orders stops alerts for real orders until the next day, without you noticing. Send one summary email per few minutes during bursts and log when the quota is used up. Related to item 15. | Claude |
+| 32 | **Public order lookup returns internal fields.** `GET /api/orders/:orderNumber` returns the whole order, including `createdBy` (the admin's email on manual orders). | The admin email is half of the admin login, and future internal fields (staff notes, history) would leak the same way. Return a fixed list of customer-safe fields. | Claude |
+| 33 | **Check the rate limits see real visitors on Render.** The API trusts exactly one proxy (`TRUST_PROXY`, default 1). If Render has more, every visitor looks like the same address. | Then one person's 5 wrong passwords would lock you out of the admin for 15 minutes, and 20 orders an hour would be the limit for the whole shop. Check `req.ip` from two networks and set `TRUST_PROXY` to match. | Both: Claude writes the check; you run it on the live API |
 
 ## Priority 3: as the shop grows
 
@@ -50,9 +58,12 @@ What is already in good shape (no action needed): prices, totals and the deliver
 | 23 | Real order pagination and search in the admin (plan feature 12). The admin downloads every order on every visit. | Slows down once there are thousands of orders. | Claude |
 | 24 | Audit log of who changed what (plan G3 and feature 3). | Needed once more than one person manages orders. | Claude |
 | 25 | Visitor analytics (Vercel Analytics or Google Analytics, with a cookie notice if required). | Tells you which sarees people look at and where they drop off. | Both |
-| 26 | Security headers (Content Security Policy) on the storefront and admin. | Extra protection against script injection. | Claude |
 | 27 | Online payment (bKash, Nagad, SSLCommerz) if you want prepaid orders. | Cuts fake orders and courier cash handling; needs a merchant account and careful payment code. | Both |
 | 28 | Delete a product's photos from Cloudinary when the product is deleted. | Keeps the free Cloudinary storage from filling up. | Claude |
+| 34 | API accepts `javascript:` and `data:` product image addresses (`z.url()`); only the admin form checks for http(s). Accept only `https://`. | Only an admin can save products, but the API should not rely on the form, and a bad URL breaks product pages. | Claude |
+| 35 | Login does not check its input: a non-text password gives a 500 error. Validate the body like every other route. | Fills the error log; the only route without the usual input check. | Claude |
+| 36 | The same product twice in one basket gets past the per-line stock check (API only; the storefront cart merges lines). Merge duplicate lines before checking. | Creates "in stock" orders that fail or become pre-orders on confirmation. Related to item 16. | Claude |
+| 37 | The customer's phone number is in the order page address (`/order-confirmation/<number>?phone=`). | It ends up in browser history, Vercel request logs and shared links. Move to a form POST or signed link later. | Claude |
 
 ## Suggested first fixes
 
