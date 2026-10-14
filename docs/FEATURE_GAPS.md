@@ -64,7 +64,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Categories and collections (Jamdani, Katan, Silk, Cotton, occasion) | Missing | P2 | 7 | Everything is "Saree". |
 | Filter by price, colour, fabric | Missing | P2 | 9a | Sort only. |
 | Bengali language | Partial | P2 | | Bengali product names show where set; menus, checkout and policies are English only. |
-| Courier tracking link for the customer | Missing | P2 | 4 | |
+| Courier tracking link for the customer | Missing | P2 | 4 | The API already returns the tracking code on the public order lookup; the track-order page does not show it yet. |
 | Customer can request a cancellation | Missing | P3 | 2 | Today they must call or message. |
 | Discount codes | Missing | P3 | 10 | |
 | Advance payment of delivery fee (bKash or Nagad) | Missing | P3 | New | Common way to stop fake COD orders; needs a merchant account. |
@@ -86,7 +86,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | **New-order alerts** to you | Missing | P1 | 1 | Nothing tells you an order arrived. Owner chose WhatsApp or email: email first (free, simple); WhatsApp needs a WhatsApp Business API account and approved message templates, so it comes later. |
 | **Manual order entry** | Missing | P1 | 14 | Many orders arrive by Facebook message or phone; today they cannot go into the system, so stock and reports are wrong. |
 | **Internal notes and status history** | Built, awaiting merge | P1 | 3 | Private notes, status history and detail-edit history with who and when: coovi-api#16, coovi-admin#10. |
-| **Courier booking and tracking number** (Steadfast, owner's choice) | Missing | P1 | 4 | Plan covers typing in the tracking number; booking the parcel through the courier's API is New. |
+| **Courier booking and tracking number** (Steadfast, owner's choice) | Partial | P1 | 4 | Built 2026-10-13 (coovi-api#18, coovi-admin#12): "Book with Steadfast" on a Processing order saves the tracking code and courier status. Needs the Steadfast API keys on Render. Not built: automatic status updates (Steadfast webhook), so the admin presses "check" and still marks Shipped and Delivered. |
 | **Cancel and return with restock** | Have (in review) | P1 | 2 | `Returned` status for parcels refused at the door, with reason and restock (coovi-api#17, coovi-admin#11). No returns after delivery (owner decision). Customer-requested cancellation is still P3. |
 | **Pre-orders** | Missing | P1 | New | Owner's rule: sell from stock when the saree is in stock; when it is not, take a pre-order that ships in at least 15 days. Needs a per-product "allow pre-order" switch and lead time, a clear "Pre-order, ships in about 15 days" label on the product page, cart and confirmation, pre-order orders marked in the admin, and stock that never goes below zero. Also answers what happens when two people order the last piece: the second becomes a pre-order instead of a failed confirmation. |
 | **Cash collection from couriers** | Built, in review | P1 | New | Pull requests coovi-api#20, coovi-admin#13 (2026-10-13). Admin "Courier payments" page: delivered orders the courier has not paid for yet, payouts typed in from the courier's statement with its charge and return costs per parcel, and any shortfall. Manual entry; importing Steadfast's payment statements automatically can come with the courier booking work. |
