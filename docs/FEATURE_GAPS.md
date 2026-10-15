@@ -94,7 +94,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Dashboard and reports | Have | P2 | 11 | 2026-10-15: server-side statistics for any date range: what needs doing now, money cards, profit, refused rate, best sellers, districts and order sources. |
 | Product cost price and profit | Have | P2 | New | 2026-10-15: admin-only cost price on each product, copied onto orders; profit counts delivered orders with a cost price. |
 | Customers list and repeat buyers | Have (in review) | P2 | 8 | 2026-10-15: Customers page by phone, with order history in the order window. |
-| Fake-order check (block list, courier delivery-success check by phone) | Partial | P2 | 8 (block list), New (courier check) | 2026-10-15: block list in review; blocked numbers' orders are accepted and shown in red. The courier delivery-success check still needs a Steadfast account. |
+| Fake-order check (block list, courier delivery-success check by phone) | Partial | P2 | 8 (block list), New (courier check) | 2026-10-15: block list merged; blocked numbers' orders are accepted and shown in red. "Confirmed by call" tick and 3 unconfirmed orders per phone in review. The courier delivery-success check still needs a Steadfast account. |
 | Real pagination and server search on orders | Have | P2 | 12 | 2026-10-15: the admin loads one page at a time and the API does the search and filters. |
 | Staff accounts and roles | In review | P2 | 13 | Four roles with per-person View and Edit access on a Team page, branch `claude/project-thread-deqibw` (2026-10-15). Moved up by the owner. |
 | Bulk actions (confirm or print many orders) | Missing | P3 | 15 | |
