@@ -107,8 +107,8 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 Approved by the owner on 2026-10-15 (plan in the project files, `reviews/PLAN_UNBLOCKED_FEATURES_2026-10-15.md`). Each step is its own set of pull requests.
 
 1. Done (merged 2026-10-15: coovi-api#31, coovi-admin#25): roles (owner, manager, staff, viewer) with per-person View and Edit access edited on the Team page, and sign out everywhere when a password changes (plan feature 13, checklist item 18).
-2. In review: statistics dashboard with cost price and profit (plan feature 11). `GET /api/stats` counts on the server for a date range; money cards (delivered revenue, profit, average order, cash with the courier) only for people with money access; best sellers, refused rate, orders by district and source. Products get a cost price field; orders placed before a cost is set show profit as unknown.
-3. Admin orders: real pagination and server search (plan feature 12).
+2. Done (merged 2026-10-15: coovi-api#32, coovi-admin#26): statistics dashboard with cost price and profit (plan feature 11). `GET /api/stats` counts on the server for a date range; money cards (delivered revenue, profit, average order, cash with the courier) only for people with money access; best sellers, refused rate, orders by district and source. Products get a cost price field; orders placed before a cost is set show profit as unknown.
+3. In review: admin orders load one page at a time (25, 50 or 100), with search by order number, name or phone, and status, area, source and date filters done by the API; CSV export still includes every matching order (plan feature 12).
 4. Customers list and fake-order block list (plan feature 8). Owner decision 2026-10-15: a blocked phone's order is accepted but flagged red in the admin for a confirmation call, not refused.
 5. Small cleanups: delete a product's photos from Cloudinary with the product (checklist item 28); move the phone number out of the order-confirmation link (checklist item 37).
 

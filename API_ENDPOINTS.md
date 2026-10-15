@@ -125,7 +125,7 @@ Returns `{ data: { deliveryFee, zones: { inside_dhaka, outside_dhaka }, district
 Order number and phone together act as the guest's credentials. Missing phone returns `400`, and so does anything other than exactly one phone in the checkout format (a repeated `?phone=`, an object, a malformed number); wrong phone or unknown order returns the same `404 Order not found`. The admin-only fields are left out.
 
 ### `GET /orders` (orders.view)
-Query: `page` (1), `limit` (20, max 100), `status`, `deliveryArea` (`inside_dhaka` also matches older orders without an area); bad values fall back to defaults. Returns `{ data: Order[], serverTime, pagination: { page, limit, total, pages } }`, newest first.
+Query: `page` (1), `limit` (20, max 100), `status`, `deliveryArea` (`inside_dhaka` also matches older orders without an area), `source` (`website` also matches older orders without a source), `search` (up to 100 characters; partial, case-insensitive match on order number, customer name or phone, taken literally), `from` and `to` (days the order was placed, `YYYY-MM-DD` in Bangladesh time, both included, either can be left out). Filters combine; bad values fall back to defaults (a bad date is ignored). Returns `{ data: Order[], serverTime, pagination: { page, limit, total, pages } }`, newest first; `total` counts every match across pages.
 `updatedSince` (optional, ISO date-time such as `2026-10-13T07:45:00.000Z`) returns only orders created or changed at or after that time, oldest change first; an invalid value returns `400`. `serverTime` is the server's clock when the request started: pass it as the next `updatedSince` so nothing is missed, whatever the client's own clock says.
 
 ### `PATCH /orders/:id` (orders.edit)
@@ -244,7 +244,9 @@ Without `money.view`, `money` and every `value` field are left out.
 
 ## Changelog
 
-- 2026-10-15: statistics dashboard: new `GET /stats`; products gain an admin-only `costPrice` (`GET /products/:id/cost`, set on create and update with `money.view`), copied onto order lines and never sent back (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
+- 2026-10-15: `GET /orders` gains `search`, `source`, `from` and `to`; the admin loads one page of orders at a time (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
+
+- 2026-10-15: statistics dashboard: new `GET /stats`; products gain an admin-only `costPrice` (`GET /products/:id/cost`, set on create and update with `money.view`), copied onto order lines and never sent back (coovi-api#32, coovi-admin#26).
 
 - 2026-10-15: roles (owner, manager, staff, viewer) with per-person View and Edit permissions, checked on every admin route, and sign out everywhere. New `/admins` team routes; `GET /auth/me` and the login response return `permissions`; `PATCH /auth/password` returns a fresh token and signs out every other session; tokens now carry `tv` and older tokens stop working once after deploy (sign in again) (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
 
