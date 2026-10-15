@@ -55,16 +55,16 @@ Items 26 and 29 to 37 come from the security review of 2026-10-13 (all three app
 | # | Item | Why it matters | Who |
 |---|---|---|---|
 | 22 | **Steadfast booking built, waiting on your Steadfast account (coovi-api#18, coovi-admin#12).** Courier integration (Pathao, Steadfast, RedX) and tracking numbers (plan feature 4). | Saves typing every parcel by hand and lets customers track deliveries. | Both |
-| 23 | Real order pagination and search in the admin (plan feature 12). The admin downloads every order on every visit. | Slows down once there are thousands of orders. | Claude |
+| 23 | **Done: coovi-api#33, coovi-admin#27 (merged 2026-10-15).** Real order pagination and search in the admin (plan feature 12). The admin downloads every order on every visit. | Slows down once there are thousands of orders. | Claude |
 | 24 | **Mostly done: order notes and change history with who and when, coovi-api#16 (merged 2026-10-13).** Audit log of who changed what (plan G3 and feature 3). | Needed once more than one person manages orders. | Claude |
 | 25 | Visitor analytics (Vercel Analytics or Google Analytics, with a cookie notice if required). | Tells you which sarees people look at and where they drop off. | Both |
 | 27 | Online payment (bKash, Nagad, SSLCommerz) if you want prepaid orders. | Cuts fake orders and courier cash handling; needs a merchant account and careful payment code. | Both |
-| 28 | Delete a product's photos from Cloudinary when the product is deleted. | Keeps the free Cloudinary storage from filling up. | Claude |
+| 28 | **In review (coovi-api, branch `claude/project-thread-deqibw`).** Photos still used by an order line are kept. Delete a product's photos from Cloudinary when the product is deleted. | Keeps the free Cloudinary storage from filling up. | Claude |
 | 34 | **Done: coovi-api#23 (merged 2026-10-14).** API accepts `javascript:` and `data:` product image addresses (`z.url()`); only the admin form checks for http(s). Accept only `https://`. | Only an admin can save products, but the API should not rely on the form, and a bad URL breaks product pages. | Claude |
 | 35 | **Done: coovi-api#23 (merged 2026-10-14).** Login does not check its input: a non-text password gives a 500 error. Validate the body like every other route. | Fills the error log; the only route without the usual input check. | Claude |
 | 36 | **Done: coovi-api#23 (merged 2026-10-14).** The same product twice in one basket gets past the per-line stock check (API only; the storefront cart merges lines). Merge duplicate lines before checking. | Creates "in stock" orders that fail or become pre-orders on confirmation. Related to item 16. | Claude |
-| 37 | The customer's phone number is in the order page address (`/order-confirmation/<number>?phone=`). | It ends up in browser history, Vercel request logs and shared links. Move to a form POST or signed link later. | Claude |
+| 37 | **In review (coovi-storefront, branch `claude/project-thread-deqibw`): the phone now goes in a cookie for that order's page.** The customer's phone number is in the order page address (`/order-confirmation/<number>?phone=`). | It ends up in browser history, Vercel request logs and shared links. Move to a form POST or signed link later. | Claude |
 
 ## Next
 
-Items 2, 5, 6, 7, 20, 21, 26, 29, 31, 32 and 34 to 36 are done in code. Item 18 is in review. The remaining Claude items (23, 28, 37) are in the build order in `QUICK_STATUS.md`. Owner decision 2026-10-15: the **You** items wait for now.
+Items 2, 5, 6, 7, 20, 21, 26, 29, 31, 32 and 34 to 36 are done in code. Item 18 is in review. Item 23 is done; items 28 and 37 are in review. Owner decision 2026-10-15: the **You** items wait for now.

@@ -91,7 +91,7 @@ Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stoc
 Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (products.delete)
-Returns `{ success, message }` or `404`.
+Returns `{ success, message }` or `404`. The product's photos are deleted from Cloudinary too (only photos in this shop's `coovi/products` folder). A photo still used by another product or shown on an order line is kept, and a Cloudinary failure never stops the product being deleted.
 
 ## Orders
 
@@ -261,7 +261,9 @@ Without `money.view`, `money` and every `value` field are left out.
 
 ## Changelog
 
-- 2026-10-15: customers and block list: new `GET /customers`, `GET /customers/:phone` and `PUT /customers/:phone/block`; the admin order list adds `blockedPhone` to orders from a blocked phone, which are still accepted (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
+- 2026-10-15: deleting a product also deletes its photos from Cloudinary; the storefront no longer puts the customer's phone in the order page link (`/order-confirmation/<number>`; the phone is kept in a cookie for that page) (coovi-api, coovi-storefront, branch `claude/project-thread-deqibw`).
+
+- 2026-10-15: customers and block list: new `GET /customers`, `GET /customers/:phone` and `PUT /customers/:phone/block`; the admin order list adds `blockedPhone` to orders from a blocked phone, which are still accepted (coovi-api#34, coovi-admin#28).
 
 - 2026-10-15: `GET /orders` gains `search`, `source`, `from` and `to`; the admin loads one page of orders at a time (coovi-api#33, coovi-admin#27).
 
