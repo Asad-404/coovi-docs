@@ -1,6 +1,6 @@
 # Missing business features
 
-Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi has them today. Written 2026-10-13 by reading the code in all three apps and comparing it with `docs/ADMIN_FEATURE_PLAN.md`. Safety and hosting gaps (backups, rate limits, domain) are in `docs/GO_LIVE_CHECKLIST.md`, not here.
+Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi has them today. Written 2026-10-13 (states re-checked against GitHub on 2026-10-15) by reading the code in all three apps and comparing it with `docs/ADMIN_FEATURE_PLAN.md`. Safety and hosting gaps (backups, rate limits, domain) are in `docs/GO_LIVE_CHECKLIST.md`, not here.
 
 ## How to read this file
 
@@ -11,17 +11,17 @@ Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi
 
 ## Summary
 
-| | Have | Partial | Missing |
-|---|---|---|---|
-| Customer side (storefront) | 6 | 4 | 15 |
-| Running orders (admin) | 4 | 3 | 17 |
-| Selling and marketing | 0 | 1 | 5 |
+| | Have | Built, waiting on you or in review | Partial | Missing |
+|---|---|---|---|---|
+| Customer side (storefront) | 8 | 1 | 4 | 12 |
+| Running orders (admin) | 11 | 2 | 2 | 9 |
+| Selling and marketing | 0 | 0 | 1 | 5 |
 
-P1 gaps, in suggested build order (updated 2026-10-13 with the owner's answers below): new-order alerts by email, pre-orders, district and area at checkout with delivery fee by area, internal notes and status history, cancel and return with restock, Steadfast booking and tracking, cash collection from Steadfast, shop settings page, order SMS to the customer, manual order entry.
+P1 status on 2026-10-15: new-order email alerts, pre-orders, district and delivery fee by area, internal notes and history, refused-parcel returns with restock, courier cash collection, shop settings and manual order entry are built and merged. Steadfast booking and the customer order SMS are built and wait on your Steadfast account and your choice of SMS company. The next build order is in `QUICK_STATUS.md` (Backlog).
 
 ## Admin feature plan coverage
 
-Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below; none is built yet. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
+Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below. As of 2026-10-15 features 1, 2, 3, 5, 6 and 14 are built and merged, 4 (Steadfast) and 13 (roles) are in review, and the rest are not built. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
 
 | Plan # | Feature | Table and priority |
 |---|---|---|
@@ -39,7 +39,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | 12 | Orders pagination and search | Admin, P2 |
 | 9b | Product variants | Admin, P3 |
 | 10 | Discount codes | Customer, P3 |
-| 13 | Second admin and roles | Admin, P3 |
+| 13 | Second admin and roles | Admin, P2 |
 | 15 | Bulk actions | Admin, P3 |
 | 16 | Homepage banner | Admin, P3 |
 | 17 | Stock history log | Admin, P3 |
@@ -55,9 +55,9 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Order confirmation and order tracking by number and phone | Have | | | Shows status only, no courier tracking. |
 | Policy pages (returns, delivery, privacy, terms) | Have | | | Wording still needs your real terms (see `QUICK_STATUS.md`). |
 | SEO, share cards, sitemap | Have | | | |
-| **District and area at checkout** | Built, in review | P1 | 5 | District dropdown with a Dhaka city or suburbs choice. Pull requests coovi-api#14, coovi-admin#16, coovi-storefront#15 (2026-10-13). |
-| **Delivery fee by area** | Built, in review | P1 | 5 | Inside Dhaka city and outside Dhaka (suburbs included); placeholder fees 70 and 130 until the owner sets real ones. Same pull requests. |
-| **Order confirmation SMS to the customer** | Missing | P1 | New | Customers expect an SMS with the order number; it also cuts "did my order go through?" calls. Needs an SMS provider account (for example SSL Wireless, BulkSMSBD). |
+| **District and area at checkout** | Have | P1 | 5 | District dropdown with a Dhaka city or suburbs choice. Pull requests coovi-api#14, coovi-admin#16, coovi-storefront#15 (2026-10-13). |
+| **Delivery fee by area** | Have | P1 | 5 | Inside Dhaka city and outside Dhaka (suburbs included); placeholder fees 70 and 130 until the owner sets real ones. Same pull requests. |
+| **Order confirmation SMS to the customer** | Built, waiting on SMS company | P1 | New | Customers expect an SMS with the order number; it also cuts "did my order go through?" calls. Needs an SMS provider account (for example SSL Wireless, BulkSMSBD). |
 | WhatsApp and Messenger chat button | Partial | P1 | | WhatsApp link exists with the placeholder number; no Messenger. |
 | Contact form | Partial | P2 | | Contact page has a `mailto:support@coovi.com` link; that address only works once you own the domain. |
 | Product details: fabric, colour, length, blouse piece, work | Partial | P2 | 9a | Only `size` exists. Saree buyers filter and decide on fabric and colour. |
@@ -83,20 +83,20 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Orders: list, filter by status and date, search, status changes | Have | | | Status only moves forward; stock taken on confirm. |
 | Edit customer contact details on an order | Have | | | |
 | CSV export and printable slip | Have | | | |
-| **New-order alerts** to you | Missing | P1 | 1 | Nothing tells you an order arrived. Owner chose WhatsApp or email: email first (free, simple); WhatsApp needs a WhatsApp Business API account and approved message templates, so it comes later. |
-| **Manual order entry** | Missing | P1 | 14 | Many orders arrive by Facebook message or phone; today they cannot go into the system, so stock and reports are wrong. |
-| **Internal notes and status history** | Built, awaiting merge | P1 | 3 | Private notes, status history and detail-edit history with who and when: coovi-api#16, coovi-admin#10. |
-| **Courier booking and tracking number** (Steadfast, owner's choice) | Missing | P1 | 4 | Plan covers typing in the tracking number; booking the parcel through the courier's API is New. |
-| **Cancel and return with restock** | Have (in review) | P1 | 2 | `Returned` status for parcels refused at the door, with reason and restock (coovi-api#17, coovi-admin#11). No returns after delivery (owner decision). Customer-requested cancellation is still P3. |
-| **Pre-orders** | Missing | P1 | New | Owner's rule: sell from stock when the saree is in stock; when it is not, take a pre-order that ships in at least 15 days. Needs a per-product "allow pre-order" switch and lead time, a clear "Pre-order, ships in about 15 days" label on the product page, cart and confirmation, pre-order orders marked in the admin, and stock that never goes below zero. Also answers what happens when two people order the last piece: the second becomes a pre-order instead of a failed confirmation. |
-| **Cash collection from couriers** | Built, in review | P1 | New | Pull requests coovi-api#20, coovi-admin#13 (2026-10-13). Admin "Courier payments" page: delivered orders the courier has not paid for yet, payouts typed in from the courier's statement with its charge and return costs per parcel, and any shortfall. Manual entry; importing Steadfast's payment statements automatically can come with the courier booking work. |
-| **Shop settings page** (WhatsApp number, support phone, announcement text, low-stock limit) | Built, in review | P1 | 6 | Pull requests coovi-api#22, coovi-admin#14, coovi-storefront#13 (2026-10-13). Delivery fees stay with the delivery-by-area work (owner decision 2026-10-13). |
+| **New-order alerts** to you | Have | P1 | 1 | Nothing tells you an order arrived. Owner chose WhatsApp or email: email first (free, simple); WhatsApp needs a WhatsApp Business API account and approved message templates, so it comes later. |
+| **Manual order entry** | Have | P1 | 14 | Many orders arrive by Facebook message or phone; today they cannot go into the system, so stock and reports are wrong. |
+| **Internal notes and status history** | Have | P1 | 3 | Private notes, status history and detail-edit history with who and when: coovi-api#16, coovi-admin#10. |
+| **Courier booking and tracking number** (Steadfast, owner's choice) | Built, waiting on Steadfast account | P1 | 4 | Plan covers typing in the tracking number; booking the parcel through the courier's API is New. |
+| **Cancel and return with restock** | Have | P1 | 2 | `Returned` status for parcels refused at the door, with reason and restock (coovi-api#17, coovi-admin#11). No returns after delivery (owner decision). Customer-requested cancellation is still P3. |
+| **Pre-orders** | Have | P1 | New | Owner's rule: sell from stock when the saree is in stock; when it is not, take a pre-order that ships in at least 15 days. Needs a per-product "allow pre-order" switch and lead time, a clear "Pre-order, ships in about 15 days" label on the product page, cart and confirmation, pre-order orders marked in the admin, and stock that never goes below zero. Also answers what happens when two people order the last piece: the second becomes a pre-order instead of a failed confirmation. |
+| **Cash collection from couriers** | Have | P1 | New | Pull requests coovi-api#20, coovi-admin#13 (2026-10-13). Admin "Courier payments" page: delivered orders the courier has not paid for yet, payouts typed in from the courier's statement with its charge and return costs per parcel, and any shortfall. Manual entry; importing Steadfast's payment statements automatically can come with the courier booking work. |
+| **Shop settings page** (WhatsApp number, support phone, announcement text, low-stock limit) | Have | P1 | 6 | Pull requests coovi-api#22, coovi-admin#14, coovi-storefront#13 (2026-10-13). Delivery fees stay with the delivery-by-area work (owner decision 2026-10-13). |
 | Dashboard and reports | Partial | P2 | 11 | Revenue chart and totals exist; no profit, best sellers or return rate. |
 | Product cost price and profit | Missing | P2 | New | Needed for real profit numbers in reports. |
 | Customers list and repeat buyers | Missing | P2 | 8 | |
 | Fake-order check (block list, courier delivery-success check by phone) | Missing | P2 | 8 (block list), New (courier check) | |
 | Real pagination and server search on orders | Partial | P2 | 12 | Search works but the admin downloads every order each time. |
-| Staff accounts and roles | Missing | P3 | 13 | One shared login today. |
+| Staff accounts and roles | In review | P2 | 13 | Four roles with per-person View and Edit access on a Team page, branch `claude/project-thread-deqibw` (2026-10-15). Moved up by the owner. |
 | Bulk actions (confirm or print many orders) | Missing | P3 | 15 | |
 | Stock history log | Missing | P3 | 17 | |
 | Homepage banner from the admin | Missing | P3 | 16 | |
@@ -127,3 +127,10 @@ Answered by the owner on 2026-10-13:
 6. Facebook ads: maybe later, not during development. Facebook Pixel moves to P2.
 
 No return window or refund method is needed while returns after delivery are off.
+
+Answered by the owner on 2026-10-15:
+
+7. Leave the **You** items in `docs/GO_LIVE_CHECKLIST.md` for now; build what has no blockers.
+8. Roles and a statistics dashboard come first. Categories, saree details and shop filters are not needed now.
+9. Access: fixed roles (owner, manager, staff, viewer) as starting points, and the owner can adjust each person's View and Edit ticks. Staff handle orders and products; only owners manage the team.
+10. Blocked phones: accept the order but flag it red in the admin for a confirmation call (not refused at checkout).
