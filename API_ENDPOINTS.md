@@ -8,7 +8,8 @@ Source of truth is the code in `coovi-api/src/routes/`; update this file in the 
 - Every response is JSON: `{ "success": boolean, "data"?, "message"?, "errors"?, "pagination"? }`.
 - Validation failures return `400` with `errors: ["field: reason", ...]`. Unknown routes return `404` JSON.
 - Money is whole BDT (integers). Dates are ISO strings.
-- Admin routes need `Authorization: Bearer <JWT>` (token from `POST /auth/login`, expires in 1 day). Missing or bad token returns `401`.
+- Admin routes need `Authorization: Bearer <JWT>` (token from `POST /auth/login`, expires in 1 day). Missing or bad token returns `401`. Every admin request also checks the account in the database: a switched-off account, or a token signed before the account's last password change, password reset or role change, returns `401` at once.
+- Roles: `owner` can use every admin route; `staff` can use every admin route except those marked **(owner)**, which return `403 Only the shop owner can do this`. Routes marked (admin) accept both.
 - Rate limits (per IP): reads 100/min, login 5 per 15 min, order creation 20/hour, order lookup 20/min. Exceeding returns `429`.
 - The storefront server identifies itself with header `x-coovi-storefront-key` (equal to `STOREFRONT_API_KEY`, server-only on both sides). With it, `x-coovi-client-ip` is used as the shopper's IP for the limits above; without a shopper IP it gets its own bucket (reads 1000/min, order lookup 200/min). Browsers never send these headers.
 - CORS allows the origins in `CORS_ORIGINS` (default `http://localhost:3000`, `http://localhost:5173`).
@@ -67,7 +68,7 @@ Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stoc
 ### `PUT /products/:id` (admin)
 Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
-### `DELETE /products/:id` (admin)
+### `DELETE /products/:id` (owner)
 Returns `{ success, message }` or `404`.
 
 ## Orders
@@ -127,13 +128,31 @@ Body `{ "text": "string" }`, trimmed, 1 to 500 characters. Appends a private not
 ## Auth
 
 ### `POST /auth/login`
-Body `{ email, password }`. Returns `{ data: { token, admin: { id, email, name, role } } }`. Wrong credentials return `401 Invalid email or password`.
+Body `{ email, password }`. Returns `{ data: { token, admin: { id, email, name, role } } }`; `role` is `owner` or `staff`. The token carries `id`, `email`, `role` and `tv` (the account's token version). Wrong credentials return `401 Invalid email or password`; the right password on a switched-off account returns `403`.
 
 ### `GET /auth/me` (admin)
-Returns `{ data: Admin }` without the password hash.
+Returns `{ data: { _id, email, name, role, active, createdAt, updatedAt } }` (never the password hash or token version).
 
 ### `PATCH /auth/password` (admin)
-Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must differ from the current one; unknown fields rejected). Returns `{ success, message }`. Wrong current password returns `401 Current password is incorrect`. Shares the login rate limit (5 per 15 min).
+Body `{ currentPassword, newPassword }` (new password 8 to 100 characters, must differ from the current one; unknown fields rejected). Returns `{ success, data: { token }, message }`. Every earlier token for this account stops working (sign out everywhere); the returned token keeps the current browser signed in. Wrong current password returns `401 Current password is incorrect`. Shares the login rate limit (5 per 15 min).
+
+## Team (owner)
+
+Admin logins. Every route is owner only. Accounts that had the old `admin` role become `owner` when the API starts.
+
+Team member object: `{ _id, email, name, role, active, createdAt, updatedAt }`.
+
+### `GET /admins` (owner)
+Everyone with a login, oldest first. Returns `{ data: [member] }`.
+
+### `POST /admins` (owner)
+Body (strict): `email`, `name` (1 to 80 characters), `role` (`owner` or `staff`), `password` (temporary, 8 to 100 characters). Returns `201 { data: member }`; `409` when the email is taken.
+
+### `PATCH /admins/:id` (owner)
+Body (strict, at least one field): `name`, `role`, `active`. A role change or switching off signs that person out at once. Demoting or switching off the last active owner returns `409`. `404` for an unknown or malformed id.
+
+### `POST /admins/:id/reset-password` (owner)
+Body `{ password }` (8 to 100 characters). Sets a new temporary password and signs that person out everywhere. Returns `{ success, message }`; `400` for your own account (use `PATCH /auth/password`), `404` when missing.
 
 ## Uploads
 
@@ -158,31 +177,33 @@ Returns `{ data: { whatsappNumber, supportPhone, announcementText, announcementA
 ### `GET /settings/admin` (admin)
 Returns `{ data: <every field above>, updatedAt }`.
 
-### `PATCH /settings` (admin)
+### `PATCH /settings` (owner)
 Body: any subset of the fields above (strict: unknown fields and an empty body return `400`). Returns `{ data: <every field>, message: "Settings saved" }`. Also `400` when the announcement would be switched on with empty text.
 
 ## Courier payments
 
-Cash on delivery money reaches the shop through the courier, days after delivery, minus the courier's charges. These routes record each payout by hand from the courier's statement; they do not call any courier API. All routes are admin only. Money is in taka, rounded to 2 decimals on the server.
+Cash on delivery money reaches the shop through the courier, days after delivery, minus the courier's charges. These routes record each payout by hand from the courier's statement; they do not call any courier API. All routes are owner only. Money is in taka, rounded to 2 decimals on the server.
 
 Payment object: `{ _id, courier, paidAt, method?, reference?, lines: [{ order, orderNumber, orderTotal, collected, charge, net }], collectedTotal, chargeTotal, netTotal, amountReceived, difference, notes?, recordedBy?, createdAt, updatedAt }`. `orderTotal` is the order's total when the payment was recorded; `net = collected - charge` (negative for a refused parcel that only cost a return charge); `difference = amountReceived - netTotal` (anything but 0 means the money that arrived does not match the statement). `method` is one of `Bank transfer`, `bKash`, `Nagad`, `Cash`, `Other`.
 
-### `GET /courier-payments/unpaid` (admin)
+### `GET /courier-payments/unpaid` (owner)
 Delivered orders that no payment covers yet, oldest update first. Returns `{ data: { orders: [{ _id, orderNumber, customerName, phone, total, status, createdAt, updatedAt }], count, expectedTotal } }`; `expectedTotal` is the sum of the order totals.
 
-### `GET /courier-payments` (admin)
+### `GET /courier-payments` (owner)
 Query: `page` (default 1), `limit` (default 20, max 100). Newest `paidAt` first. Returns `{ data: [payment], summary: { collectedTotal, chargeTotal, netTotal, amountReceived }, pagination }`; `summary` covers every payment, not just the page.
 
-### `GET /courier-payments/:id` (admin)
+### `GET /courier-payments/:id` (owner)
 One payment. `404` when missing, `400` for a malformed id.
 
-### `POST /courier-payments` (admin)
+### `POST /courier-payments` (owner)
 Body (strict, unknown fields are a `400`): `paidAt` (date, not in the future), `lines: [{ orderNumber, collected, charge }]` (1 to 500), and optional `courier` (default `Steadfast`), `method`, `reference` (up to 100 characters), `amountReceived` (defaults to the computed net), `notes` (up to 500). The server looks up each order and computes `orderTotal`, every `net` and every total. Each order must be `Shipped`, `Delivered` or `Returned` (`400` otherwise or when not found), may appear once in the body (`400`) and in one payment ever (`409`; a unique index also blocks two admins recording it at the same moment). Returns `201` with the payment.
 
-### `DELETE /courier-payments/:id` (admin)
+### `DELETE /courier-payments/:id` (owner)
 Removes a payment entered by mistake; its orders show as unpaid again. `404` when missing.
 
 ## Changelog
+
+- 2026-10-15: owner and staff roles and sign out everywhere. New `/admins` team routes; courier payments, `PATCH /settings` and `DELETE /products/:id` are owner only; `PATCH /auth/password` returns a fresh token and signs out every other session; tokens now carry `tv` and older tokens stop working once after deploy (sign in again) (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
 
 - 2026-10-13: security review fixes: `createdBy` is now admin-only (left out of `POST /orders` and `GET /orders/:orderNumber`); product `images` must be `https://`; `POST /auth/login` returns `400` for non-string fields; duplicate product lines in an order are merged before the stock check (coovi-api#23).
 
