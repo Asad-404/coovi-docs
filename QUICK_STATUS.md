@@ -54,7 +54,7 @@ Open pull requests:
 |---|---|---|
 | coovi-api#18, coovi-admin#12, coovi-docs#11 | Book parcels with Steadfast and save the tracking code | Your Steadfast merchant account and API keys |
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
-| coovi-api, coovi-admin, coovi-docs on `claude/project-thread-deqibw` | Owner and staff roles, Team page, sign out everywhere on password change | Your review (opened 2026-10-15) |
+| coovi-api, coovi-admin, coovi-docs on `claude/project-thread-deqibw` | Roles (owner, manager, staff, viewer) with per-person View and Edit access on the Team page, sign out everywhere on password change | Your review (opened 2026-10-15) |
 
 | App | Port | Stack |
 |---|---|---|
@@ -106,7 +106,7 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 
 Approved by the owner on 2026-10-15 (plan in the project files, `reviews/PLAN_UNBLOCKED_FEATURES_2026-10-15.md`). Each step is its own set of pull requests.
 
-1. In review: owner and staff roles with a Team page, and sign out everywhere when a password changes (plan feature 13, checklist item 18).
+1. In review: roles (owner, manager, staff, viewer) with per-person View and Edit access edited on the Team page, and sign out everywhere when a password changes (plan feature 13, checklist item 18). Owner asked for per-person access on 2026-10-15.
 2. Statistics dashboard with cost price and profit (plan feature 11): server-side counts, date range, money cards for the owner only, best sellers, refused rate, orders by district, website vs manual orders.
 3. Admin orders: real pagination and server search (plan feature 12).
 4. Customers list and fake-order block list (plan feature 8). Owner decision 2026-10-15: a blocked phone's order is accepted but flagged red in the admin for a confirmation call, not refused.

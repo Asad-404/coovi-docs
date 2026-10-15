@@ -96,7 +96,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Customers list and repeat buyers | Missing | P2 | 8 | |
 | Fake-order check (block list, courier delivery-success check by phone) | Missing | P2 | 8 (block list), New (courier check) | |
 | Real pagination and server search on orders | Partial | P2 | 12 | Search works but the admin downloads every order each time. |
-| Staff accounts and roles | In review | P2 | 13 | Owner and staff roles with a Team page, branch `claude/project-thread-deqibw` (2026-10-15). Moved up by the owner. |
+| Staff accounts and roles | In review | P2 | 13 | Four roles with per-person View and Edit access on a Team page, branch `claude/project-thread-deqibw` (2026-10-15). Moved up by the owner. |
 | Bulk actions (confirm or print many orders) | Missing | P3 | 15 | |
 | Stock history log | Missing | P3 | 17 | |
 | Homepage banner from the admin | Missing | P3 | 16 | |
@@ -132,5 +132,5 @@ Answered by the owner on 2026-10-15:
 
 7. Leave the **You** items in `docs/GO_LIVE_CHECKLIST.md` for now; build what has no blockers.
 8. Roles and a statistics dashboard come first. Categories, saree details and shop filters are not needed now.
-9. Staff rights: staff handle orders and products; only owners see money, settings, the Team page, CSV export and product delete.
+9. Access: fixed roles (owner, manager, staff, viewer) as starting points, and the owner can adjust each person's View and Edit ticks. Staff handle orders and products; only owners manage the team.
 10. Blocked phones: accept the order but flag it red in the admin for a confirmation call (not refused at checkout).
