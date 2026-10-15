@@ -21,7 +21,7 @@ P1 status on 2026-10-15: new-order email alerts, pre-orders, district and delive
 
 ## Admin feature plan coverage
 
-Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below. As of 2026-10-15 features 1, 2, 3, 5, 6, 11 (statistics), 13 (roles) and 14 are built and merged, 4 (Steadfast) and 12 (order pages and search) are in review, and the rest are not built. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
+Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below. As of 2026-10-15 features 1, 2, 3, 5, 6, 11 (statistics), 12 (order pages and search), 13 (roles) and 14 are built and merged, 4 (Steadfast) and 8 (customers and block list) are in review, and the rest are not built. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
 
 | Plan # | Feature | Table and priority |
 |---|---|---|
@@ -93,9 +93,9 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | **Shop settings page** (WhatsApp number, support phone, announcement text, low-stock limit) | Have | P1 | 6 | Pull requests coovi-api#22, coovi-admin#14, coovi-storefront#13 (2026-10-13). Delivery fees stay with the delivery-by-area work (owner decision 2026-10-13). |
 | Dashboard and reports | Have | P2 | 11 | 2026-10-15: server-side statistics for any date range: what needs doing now, money cards, profit, refused rate, best sellers, districts and order sources. |
 | Product cost price and profit | Have | P2 | New | 2026-10-15: admin-only cost price on each product, copied onto orders; profit counts delivered orders with a cost price. |
-| Customers list and repeat buyers | Missing | P2 | 8 | |
-| Fake-order check (block list, courier delivery-success check by phone) | Missing | P2 | 8 (block list), New (courier check) | |
-| Real pagination and server search on orders | Have (in review) | P2 | 12 | 2026-10-15: the admin loads one page at a time and the API does the search and filters. |
+| Customers list and repeat buyers | Have (in review) | P2 | 8 | 2026-10-15: Customers page by phone, with order history in the order window. |
+| Fake-order check (block list, courier delivery-success check by phone) | Partial | P2 | 8 (block list), New (courier check) | 2026-10-15: block list in review; blocked numbers' orders are accepted and shown in red. The courier delivery-success check still needs a Steadfast account. |
+| Real pagination and server search on orders | Have | P2 | 12 | 2026-10-15: the admin loads one page at a time and the API does the search and filters. |
 | Staff accounts and roles | In review | P2 | 13 | Four roles with per-person View and Edit access on a Team page, branch `claude/project-thread-deqibw` (2026-10-15). Moved up by the owner. |
 | Bulk actions (confirm or print many orders) | Missing | P3 | 15 | |
 | Stock history log | Missing | P3 | 17 | |

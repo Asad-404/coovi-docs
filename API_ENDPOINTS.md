@@ -223,6 +223,23 @@ Body (strict, unknown fields are a `400`): `paidAt` (date, not in the future), `
 ### `DELETE /courier-payments/:id` (payments.edit)
 Removes a payment entered by mistake; its orders show as unpaid again. `404` when missing.
 
+## Customers
+
+Checkout is guest-only, so a customer is a phone number; these routes add up its orders. Reading needs `orders.view`; blocking needs `orders.edit`. `spent` (the total of Delivered orders) is only sent with `money.view`.
+
+Customer object: `{ phone, name, address, district?, orders, delivered, cancelled, returned, spent?, firstOrderAt, lastOrderAt, risky, blocked }`. `name`, `address` and `district` come from the newest order. `risky` is true when `returned + cancelled` is 2 or more. `blocked` is `{ note?, by, at }` or `null`.
+
+A blocked phone's orders are **still accepted** (owner decision 2026-10-15); the customer is never told. The admin order list (`GET /orders`) adds `blockedPhone: { note?, by, at }` to each order from a blocked phone so the admin shows it in red; no public response includes it.
+
+### `GET /customers` (orders.view)
+Query: `page` (1), `limit` (25, max 100), `search` (partial, case-insensitive match on phone or any order's name), `sort` (`recent` latest order first, `orders` most orders, `refused` most returned plus cancelled), `blocked` (`true` for blocked phones only). Bad values fall back to defaults. Returns `{ data: Customer[], pagination: { page, limit, total, pages } }`.
+
+### `GET /customers/:phone` (orders.view)
+Returns `{ data: { customer, orders: [{ _id, orderNumber, customerName, status, total, createdAt }] } }` with the latest 50 orders, newest first. `400` for a phone that isn't 11 digits starting with 01; `404` when the phone has no orders and isn't blocked.
+
+### `PUT /customers/:phone/block` (orders.edit)
+Body (strict): `{ blocked: boolean, note?: string }` (note up to 300 characters). `blocked: true` blocks or re-blocks (replacing the note and who did it); `false` removes the block. Returns `{ data: { phone, blocked } }`. `400` for a bad phone or body.
+
 ## Statistics
 
 ### `GET /stats` (orders.view; money with money.view)
@@ -244,7 +261,9 @@ Without `money.view`, `money` and every `value` field are left out.
 
 ## Changelog
 
-- 2026-10-15: `GET /orders` gains `search`, `source`, `from` and `to`; the admin loads one page of orders at a time (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
+- 2026-10-15: customers and block list: new `GET /customers`, `GET /customers/:phone` and `PUT /customers/:phone/block`; the admin order list adds `blockedPhone` to orders from a blocked phone, which are still accepted (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
+
+- 2026-10-15: `GET /orders` gains `search`, `source`, `from` and `to`; the admin loads one page of orders at a time (coovi-api#33, coovi-admin#27).
 
 - 2026-10-15: statistics dashboard: new `GET /stats`; products gain an admin-only `costPrice` (`GET /products/:id/cost`, set on create and update with `money.view`), copied onto order lines and never sent back (coovi-api#32, coovi-admin#26).
 
