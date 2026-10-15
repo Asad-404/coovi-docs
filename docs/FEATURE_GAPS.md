@@ -21,7 +21,7 @@ P1 status on 2026-10-15: new-order email alerts, pre-orders, district and delive
 
 ## Admin feature plan coverage
 
-Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below. As of 2026-10-15 features 1, 2, 3, 5, 6 and 14 are built and merged, 4 (Steadfast) and 13 (roles) are in review, and the rest are not built. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
+Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below. As of 2026-10-15 features 1, 2, 3, 5, 6, 13 (roles) and 14 are built and merged, 4 (Steadfast) and 11 (statistics) are in review, and the rest are not built. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
 
 | Plan # | Feature | Table and priority |
 |---|---|---|
@@ -91,8 +91,8 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | **Pre-orders** | Have | P1 | New | Owner's rule: sell from stock when the saree is in stock; when it is not, take a pre-order that ships in at least 15 days. Needs a per-product "allow pre-order" switch and lead time, a clear "Pre-order, ships in about 15 days" label on the product page, cart and confirmation, pre-order orders marked in the admin, and stock that never goes below zero. Also answers what happens when two people order the last piece: the second becomes a pre-order instead of a failed confirmation. |
 | **Cash collection from couriers** | Have | P1 | New | Pull requests coovi-api#20, coovi-admin#13 (2026-10-13). Admin "Courier payments" page: delivered orders the courier has not paid for yet, payouts typed in from the courier's statement with its charge and return costs per parcel, and any shortfall. Manual entry; importing Steadfast's payment statements automatically can come with the courier booking work. |
 | **Shop settings page** (WhatsApp number, support phone, announcement text, low-stock limit) | Have | P1 | 6 | Pull requests coovi-api#22, coovi-admin#14, coovi-storefront#13 (2026-10-13). Delivery fees stay with the delivery-by-area work (owner decision 2026-10-13). |
-| Dashboard and reports | Partial | P2 | 11 | Revenue chart and totals exist; no profit, best sellers or return rate. |
-| Product cost price and profit | Missing | P2 | New | Needed for real profit numbers in reports. |
+| Dashboard and reports | Have (in review) | P2 | 11 | 2026-10-15: server-side statistics for any date range: what needs doing now, money cards, profit, refused rate, best sellers, districts and order sources. |
+| Product cost price and profit | Have (in review) | P2 | New | 2026-10-15: admin-only cost price on each product, copied onto orders; profit counts delivered orders with a cost price. |
 | Customers list and repeat buyers | Missing | P2 | 8 | |
 | Fake-order check (block list, courier delivery-success check by phone) | Missing | P2 | 8 (block list), New (courier check) | |
 | Real pagination and server search on orders | Partial | P2 | 12 | Search works but the admin downloads every order each time. |

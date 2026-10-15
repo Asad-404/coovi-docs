@@ -54,6 +54,8 @@ The API is the source of truth for prices, stock, delivery fee, order totals, or
 | `preorderDays` | number | 1 to 90, default 15: the promised wait for a pre-order |
 | `createdAt`, `updatedAt` | string | |
 
+`costPrice` (what the shop paid for one piece) is stored on the product but left out of every product response; it is read with `GET /products/:id/cost`. When an order is placed the cost is copied onto each order line, so later cost changes don't rewrite old profit. That copy is never sent in any order response.
+
 ## Health
 
 ### `GET /health` (public)
@@ -75,15 +77,18 @@ Query (all optional; bad values fall back to defaults instead of erroring):
 
 Response: `{ success, data: Product[], pagination: { page, limit, total, pages, hasMore } }`.
 
+### `GET /products/:id/cost` (money.view)
+Returns `{ data: { costPrice } }`, where `costPrice` is `null` when none is set, or `404`.
+
 ### `GET /products/:slug` (public)
 Returns `{ success, data: Product }`, or `404` `Product not found`.
 
 ### `POST /products` (products.edit)
 Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15) optional.
-`price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Returns `201 { data: Product }`; duplicate slug returns `400`.
+`price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Optional `costPrice` (0 or more) needs `money.view`, otherwise `403`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (products.edit)
-Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (products.delete)
 Returns `{ success, message }` or `404`.
@@ -218,7 +223,28 @@ Body (strict, unknown fields are a `400`): `paidAt` (date, not in the future), `
 ### `DELETE /courier-payments/:id` (payments.edit)
 Removes a payment entered by mistake; its orders show as unpaid again. `404` when missing.
 
+## Statistics
+
+### `GET /stats` (orders.view; money with money.view)
+The admin dashboard's numbers, worked out from every order **placed** in the range. Query: `from`, `to` as `YYYY-MM-DD` days in Bangladesh time (UTC+6), both included; default the last 30 days ending today; at most 366 days. A bad date, `from` after `to` or a longer range returns `400`.
+
+Response `data`:
+
+| Field | Notes |
+|---|---|
+| `range` | `{ from, to, days }` |
+| `orders` | `total`, `byStatus` (every status), `bySource` (every source), `byArea` (`inside_dhaka`, `outside_dhaka`; orders from before areas count as inside), `withPreorder`, `refusedRate` (Returned as a percent of Delivered + Returned, `null` when none) |
+| `pipeline` | Current work whatever the date: `toConfirm` (Pending), `toShip` (Processing), `onTheWay` (Shipped), `preordersWaiting` (Processing orders with a pre-order line) |
+| `daily` | One entry per day of the range: `{ date, orders, value }`; `value` is the total of orders not Cancelled or Returned |
+| `bestSellers` | Top 10 by quantity among orders not Cancelled or Returned: `{ productId, name, quantity, value }` |
+| `topDistricts` | Top 10 `{ district, orders }` |
+| `money` | Only with `money.view`: `deliveredRevenue` and `deliveredOrders` (Delivered), `orderValue` and `averageOrderValue` (not Cancelled or Returned), `deliveryFees` (Delivered), `cost`, `grossProfit` (Delivered orders whose every line has a cost price: subtotal minus discount minus cost, before courier charges), `profitOrders`, `unknownCostOrders`, `courierOwes: { orders, total }` (Delivered orders on no courier payment, from any date) |
+
+Without `money.view`, `money` and every `value` field are left out.
+
 ## Changelog
+
+- 2026-10-15: statistics dashboard: new `GET /stats`; products gain an admin-only `costPrice` (`GET /products/:id/cost`, set on create and update with `money.view`), copied onto order lines and never sent back (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
 
 - 2026-10-15: roles (owner, manager, staff, viewer) with per-person View and Edit permissions, checked on every admin route, and sign out everywhere. New `/admins` team routes; `GET /auth/me` and the login response return `permissions`; `PATCH /auth/password` returns a fresh token and signs out every other session; tokens now carry `tv` and older tokens stop working once after deploy (sign in again) (coovi-api, coovi-admin, branch `claude/project-thread-deqibw`).
 
