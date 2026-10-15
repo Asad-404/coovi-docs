@@ -15,7 +15,7 @@ Source of truth is the code in `coovi-api/src/routes/`; update this file in the 
 | Permission | Allows | Role presets |
 |---|---|---|
 | `orders.view` | `GET /orders` | manager, staff, viewer |
-| `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `POST /orders/:id/notes` | manager, staff |
+| `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `PATCH /orders/:id/call-confirmed`, `POST /orders/:id/notes` | manager, staff |
 | `orders.export` | the admin CSV export button (the data comes from `GET /orders`) | manager |
 | `products.view` | the admin product list | manager, staff, viewer |
 | `products.edit` | `POST /products`, `PUT /products/:id`, `POST /uploads/signature` | manager, staff |
@@ -27,7 +27,7 @@ Source of truth is the code in `coovi-api/src/routes/`; update this file in the 
 | `settings.edit` | `PATCH /settings` | none |
 
 Each Edit permission brings its View (`orders.edit`, `orders.export` and `money.view` bring `orders.view`; `products.edit` and `products.delete` bring `products.view`; `payments.edit` brings `payments.view`; `settings.edit` brings `settings.view`). The API adds them when saving.
-- Rate limits (per IP): reads 100/min, login 5 per 15 min, order creation 20/hour, order lookup 20/min. Exceeding returns `429`.
+- Rate limits (per IP): reads 100/min, login 5 per 15 min, order creation 5/hour, order lookup 20/min. Exceeding returns `429`.
 - The storefront server identifies itself with header `x-coovi-storefront-key` (equal to `STOREFRONT_API_KEY`, server-only on both sides). With it, `x-coovi-client-ip` is used as the shopper's IP for the limits above; without a shopper IP it gets its own bucket (reads 1000/min, order lookup 200/min). Browsers never send these headers.
 - CORS allows the origins in `CORS_ORIGINS` (default `http://localhost:3000`, `http://localhost:5173`).
 
@@ -96,7 +96,7 @@ Returns `{ success, message }` or `404`. The product's photos are deleted from C
 ## Orders
 
 Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `district?` (one of the 64 districts; missing on orders placed before delivery areas), `deliveryArea` (`inside_dhaka` or `outside_dhaka`; older orders without it count as `inside_dhaka`), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `discount` (taka off the items, `0` unless an admin agreed one on a manual order), `deliveryFee`, `total` (`subtotal - discount + deliveryFee`), `status`, `paymentMethod` (COD), `notes?` (the customer's own note), `source` (`website`, `facebook`, `whatsapp`, `phone` or `other`; orders saved before 2026-10-13 read as `website`), `returnedAt?`, `createdAt`, `updatedAt`.
-Admin-only fields, returned by the admin routes and never by `POST /orders` or `GET /orders/:orderNumber`: `internalNotes[]` (`text`, `by`, `byId`, `at`), `statusHistory[]` (`from?`, `to`, `by`, `byId?`, `at`) `editHistory[]` (`changes[]` of `{ field, from?, to? }`, `by`, `byId`, `at`), `cancelReason?` (why it was cancelled or the parcel came back) `restocked?` (whether a refused parcel went back into stock) and `createdBy?` (email of the admin who entered a manual order). `by` is the admin's email, or `customer` for the order being placed; `byId` is the admin id. All three are append-only and are empty arrays on orders placed before 2026-10-13.
+Admin-only fields, returned by the admin routes and never by `POST /orders` or `GET /orders/:orderNumber`: `internalNotes[]` (`text`, `by`, `byId`, `at`), `statusHistory[]` (`from?`, `to`, `by`, `byId?`, `at`) `editHistory[]` (`changes[]` of `{ field, from?, to? }`, `by`, `byId`, `at`), `cancelReason?` (why it was cancelled or the parcel came back) `restocked?` (whether a refused parcel went back into stock) `createdBy?` (email of the admin who entered a manual order) and `callConfirmed?` (`by`, `byId?`, `at`: the admin who called the customer and confirmed the order; missing until someone does, set on manual orders from the start). `by` is the admin's email, or `customer` for the order being placed; `byId` is the admin id. All three are append-only and are empty arrays on orders placed before 2026-10-13.
 Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`, `Returned`.
 
 ### `POST /orders` (public, guest checkout)
@@ -108,14 +108,14 @@ Body:
 ```
 `district` (one of the names in `GET /orders/delivery-fee` `districts`) and `deliveryArea` are optional so an older client still works. Only district `Dhaka` can be `inside_dhaka` (Dhaka city); Dhaka suburbs send `outside_dhaka`. Any other district is stored as `outside_dhaka` whatever is sent, and asking for `inside_dhaka` with it returns `400`. With neither field the order is `inside_dhaka`.
 `phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock`) and has enough stock, adds the delivery fee for the order's `deliveryArea`, and stores the order as `Pending`. When stock is short and the product has `allowPreorder`, the whole line is stored with `preorder: true` and the product's `preorderDays` instead of being refused.
-Records the first `statusHistory` entry (`to: Pending`, `by: customer`). Returns `201 { data: Order }` without the admin-only fields. Errors: `400` for invalid data, a removed product, a product switched off for sale, or insufficient stock (message names the product).
+Records the first `statusHistory` entry (`to: Pending`, `by: customer`). Returns `201 { data: Order }` without the admin-only fields. Errors: `400` for invalid data, a removed product, a product switched off for sale, or insufficient stock (message names the product). `429` when this `phone` already has 3 `Pending` website orders (checkout can't prove the phone belongs to the person ordering, so each order waits for a confirmation call), or after 5 orders an hour from one address.
 
 ### `POST /orders/manual` (orders.edit)
 Enters an order taken by Facebook, WhatsApp or phone. Body (strict, unknown fields such as `total` or `price` rejected): the same fields as `POST /orders`, plus:
 ```json
 { "source": "facebook | whatsapp | phone | other", "deliveryFeeOverride": 0, "discount": 500 }
 ```
-`source` is required. `district` and `deliveryArea` follow the checkout rule; the fee is the one for that area unless `deliveryFeeOverride` (optional, whole taka 0 to 10000) replaces it for this order. `discount` (optional, whole taka, default 0) comes off the items and cannot be more than the subtotal. Items are priced and checked exactly like `POST /orders` (database prices, `inStock`, stock or pre-order). The order is stored as `Pending` with `createdBy` set to the admin's email; confirming it takes stock like any other order. Not rate-limited, and it sends no new-order email.
+`source` is required. `district` and `deliveryArea` follow the checkout rule; the fee is the one for that area unless `deliveryFeeOverride` (optional, whole taka 0 to 10000) replaces it for this order. `discount` (optional, whole taka, default 0) comes off the items and cannot be more than the subtotal. Items are priced and checked exactly like `POST /orders` (database prices, `inStock`, stock or pre-order). The order is stored as `Pending` with `createdBy` set to the admin's email and `callConfirmed` set to that admin (they took the order from the customer); confirming it takes stock like any other order. Not rate-limited, and it sends no new-order email.
 The first `statusHistory` entry names the admin who entered it. Returns `201 { data: Order }`. Errors: `400` for invalid data, a discount above the subtotal, or the same product and stock errors as checkout; `401` without an admin token.
 
 ### `GET /orders/delivery-fee` (public)
@@ -143,6 +143,9 @@ Any other change, including the same status again, returns `409` naming the allo
 - `Processing` to `Cancelled`: stock is restored for lines that are not pre-orders.
 - `Shipped` to `Returned`: stock is restored for lines that are not pre-orders, unless `restock` is `false`.
 - Pre-order lines never take or return stock: a piece bought for a pre-order is not added to `stock`.
+
+### `PATCH /orders/:id/call-confirmed` (orders.edit)
+Body (strict) `{ "confirmed": true }` or `{ "confirmed": false }`. `true` stamps `callConfirmed` with the admin and time; `false` removes it. Each real change adds an `editHistory` entry with field `callConfirmed` from `no`/`yes` to `yes`/`no`; sending the current value changes nothing. Returns `{ data: Order }`, `400` for a bad body, `404` if the order is unknown, or `409` for a `Delivered`, `Cancelled` or `Returned` order or when someone else changed it at the same moment. The API does not require it before `Processing`; the admin panel asks first.
 
 ### `POST /orders/:id/notes` (orders.edit)
 Body `{ "text": "string" }`, trimmed, 1 to 500 characters. Appends a private note stamped with the admin and time; allowed at any status. Notes cannot be edited or deleted. Returns `201 { data: Order }`, `400` for a bad note or id, or `404` if the order is unknown.
@@ -262,6 +265,8 @@ Without `money.view`, `money` and every `value` field are left out.
 ## Changelog
 
 - 2026-10-15: deleting a product also deletes its photos from Cloudinary; the storefront no longer puts the customer's phone in the order page link (`/order-confirmation/<number>`; the phone is kept in a cookie for that page) (coovi-api, coovi-storefront, branch `claude/project-thread-deqibw`).
+
+- 2026-10-15: phone check by call: `POST /orders` returns `429` when the phone already has 3 `Pending` website orders, and order creation is limited to 5 an hour per address (was 20); orders gain admin-only `callConfirmed`, set with the new `PATCH /orders/:id/call-confirmed` and from the start on manual orders (coovi-api, coovi-admin, coovi-storefront, branch `claude/checkout-phone-check-f5pfyv`).
 
 - 2026-10-15: customers and block list: new `GET /customers`, `GET /customers/:phone` and `PUT /customers/:phone/block`; the admin order list adds `blockedPhone` to orders from a blocked phone, which are still accepted (coovi-api#34, coovi-admin#28).
 

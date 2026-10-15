@@ -54,7 +54,7 @@ Open pull requests:
 |---|---|---|
 | coovi-api#18, coovi-admin#12, coovi-docs#11 | Book parcels with Steadfast and save the tracking code | Your Steadfast merchant account and API keys |
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
-| coovi-api, coovi-admin, coovi-docs on `claude/project-thread-deqibw` | Roles (owner, manager, staff, viewer) with per-person View and Edit access on the Team page, sign out everywhere on password change | Your review (opened 2026-10-15) |
+| coovi-api, coovi-admin, coovi-storefront, coovi-docs on `claude/checkout-phone-check-f5pfyv` | Phone check by call: "Confirmed by call" tick, warning before Processing, 3 unconfirmed orders per phone, 5 checkouts an hour per address | Your review (opened 2026-10-15) |
 
 | App | Port | Stack |
 |---|---|---|
@@ -110,7 +110,7 @@ Approved by the owner on 2026-10-15 (plan in the project files, `reviews/PLAN_UN
 2. Done (merged 2026-10-15: coovi-api#32, coovi-admin#26): statistics dashboard with cost price and profit (plan feature 11). `GET /api/stats` counts on the server for a date range; money cards (delivered revenue, profit, average order, cash with the courier) only for people with money access; best sellers, refused rate, orders by district and source. Products get a cost price field; orders placed before a cost is set show profit as unknown.
 3. Done (merged 2026-10-15: coovi-api#33, coovi-admin#27): admin orders load one page at a time (25, 50 or 100), with search by order number, name or phone, and status, area, source and date filters done by the API; CSV export still includes every matching order (plan feature 12).
 4. Done (merged 2026-10-15, coovi-api#34, coovi-admin#28): a Customers page (everyone who has ordered, by phone, with delivered, refused and cancelled counts) and a block list (plan feature 8). Owner decision 2026-10-15: a blocked phone's order is accepted but shown in red in the admin for a confirmation call, not refused. The order window also shows that number's history.
-5. In review: small cleanups: delete a product's photos from Cloudinary with the product (checklist item 28); move the phone number out of the order-confirmation link (checklist item 37).
+5. Done (merged 2026-10-15, coovi-api#35, coovi-storefront#26): small cleanups: delete a product's photos from Cloudinary with the product (checklist item 28); move the phone number out of the order-confirmation link (checklist item 37).
 
 Not now (owner decision 2026-10-15): categories, saree details (fabric, colour, work) and shop filters (plan features 7 and 9a).
 
