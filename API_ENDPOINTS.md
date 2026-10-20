@@ -46,6 +46,7 @@ The API is the source of truth for prices, stock, delivery fee, order totals, or
 | `price` | number | **current selling price**; what orders charge |
 | `compareAtPrice?` | number | original price before a discount. The product is **on sale** when `compareAtPrice > price` |
 | `images` | string[] | at least 1 `https://` URL |
+| `shareImage?` | string | `https://` URL of a wide 1200x630 picture for social media link previews (the admin checks the size before upload). Without it the storefront uses the first photo |
 | `size?` | string | |
 | `category` | string | default `Saree` |
 | `stock` | number | |
@@ -84,14 +85,14 @@ Returns `{ data: { costPrice } }`, where `costPrice` is `null` when none is set,
 Returns `{ success, data: Product }`, or `404` `Product not found`.
 
 ### `POST /products` (products.edit)
-Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15) optional.
+Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15) optional.
 `price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Optional `costPrice` (0 or more) needs `money.view`, otherwise `403`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (products.edit)
-Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (products.delete)
-Returns `{ success, message }` or `404`. The product's photos are deleted from Cloudinary too (only photos in this shop's `coovi/products` folder). A photo still used by another product or shown on an order line is kept, and a Cloudinary failure never stops the product being deleted.
+Returns `{ success, message }` or `404`. The product's photos and share image are deleted from Cloudinary too (only photos in this shop's `coovi/products` folder). A photo still used by another product (as a photo or share image) or shown on an order line is kept, and a Cloudinary failure never stops the product being deleted.
 
 ## Orders
 
@@ -264,6 +265,8 @@ Without `money.view`, `money` and every `value` field are left out.
 - 2026-10-15: deleting a product also deletes its photos from Cloudinary; the storefront no longer puts the customer's phone in the order page link (`/order-confirmation/<number>`; the phone is kept in a cookie for that page) (coovi-api, coovi-storefront, branch `claude/project-thread-deqibw`).
 
 - 2026-10-15: customers and block list: new `GET /customers`, `GET /customers/:phone` and `PUT /customers/:phone/block`; the admin order list adds `blockedPhone` to orders from a blocked phone, which are still accepted (coovi-api#34, coovi-admin#28).
+
+- 2026-10-20: products gain an optional `shareImage` (`https://`, 1200x630) for social media link previews; cleared when a `PUT` leaves it out, deleted from Cloudinary with the product (coovi-api, coovi-admin, coovi-storefront, branch `claude/social-share-previews-kg0ucw`).
 
 - 2026-10-15: `GET /orders` gains `search`, `source`, `from` and `to`; the admin loads one page of orders at a time (coovi-api#33, coovi-admin#27).
 

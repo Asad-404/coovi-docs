@@ -95,6 +95,8 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 - Search results and `?page=` pages are `noindex,follow`; cart, checkout and track-order are `noindex`.
 - **Set `NEXT_PUBLIC_SITE_URL` (real https address, no trailing slash) in Vercel before the first production build**, or canonical, sitemap and share links point to localhost. Template: `coovi-storefront/.env.example`.
 - In `next dev` the share image address shows `localhost`; production uses `NEXT_PUBLIC_SITE_URL` (checked in Next source).
+- Product link previews (Facebook, Messenger, WhatsApp; in review 2026-10-20, branch `claude/social-share-previews-kg0ucw`): each product can have a **share image** uploaded in the admin product form. Make it **1200 x 630 px, JPG, under 300 KB**, with the saree and any text in the middle 630 x 630 square (WhatsApp and small Messenger previews crop to a square). Without one the first product photo is used, which tall saree photos crop badly. The preview text starts with the price and stock (`shareDescription` in `coovi-storefront/lib/utils.ts`).
+- Checking a product link before sharing: open https://developers.facebook.com/tools/debug/, paste the product address, press **Debug**. It shows the picture, title and text Facebook will use. After changing a product's image or text, press **Scrape Again**, otherwise Facebook can keep showing its old copy for weeks. WhatsApp keeps its own copy too; a link shared there before the change can keep the old preview.
 - Still to do for SEO: submit the sitemap in Google Search Console once the domain is live; real product photos and descriptions help rankings most.
 
 ## Not verified yet
