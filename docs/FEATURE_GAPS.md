@@ -108,7 +108,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 
 | Feature | State | Priority | Plan | Notes |
 |---|---|---|---|---|
-| Facebook Pixel and Conversions API | Missing | P2 | New | Most saree sales in Bangladesh come from Facebook and Instagram ads; without the pixel you cannot measure or optimise ads. Needs your Meta Business account. Moved from P1 to P2: owner will not run ads during development. |
+| Facebook Pixel and Conversions API | Partial | P2 | New | Browser pixel built 2026-10-20 (PageView, ViewContent, AddToCart, InitiateCheckout, Purchase), off until the Pixel ID is set in Vercel; Conversions API (server copy) waits until ads start (owner decision 2026-10-20). Most saree sales in Bangladesh come from Facebook and Instagram ads; without the pixel you cannot measure or optimise ads. Needs your Meta Business account. Moved from P1 to P2: owner will not run ads during development. |
 | Facebook and Instagram product catalogue feed | Missing | P2 | New | Lets you tag products in posts and run catalogue ads. |
 | Visitor analytics (Google Analytics or Vercel Analytics) | Missing | P2 | New | |
 | Google Search Console and Merchant Center | Partial | P2 | | Product structured data exists; sitemap not yet submitted (needs the real domain). |
