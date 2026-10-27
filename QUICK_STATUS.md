@@ -6,7 +6,7 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 ## Waiting on you
 
 1. Done 2026-10-27: old branches deleted, locally and on GitHub, in all four repos. Each one was the head of a merged pull request, or already contained in `master`. The only branch kept is `claude/project-thread-qolyc8` (open coovi-api#15).
-2. **Decide on order `ORD-20260919-558`** ("Test Customer", Delivered, Pink Chiffon Saree, 1659): it looks like test data but is still in the database. The demo order `ORD-20260920-814` ("Smoke Test") was deleted 2026-10-27, and the `test-saree` product was already gone.
+2. Done 2026-10-27: demo data deleted. Orders `ORD-20260920-814` ("Smoke Test") and `ORD-20260919-558` ("Test Customer") are gone; the `test-saree` product was already gone.
 3. **Policy pages: add your real terms** (delivery time; no returns after delivery, decided 2026-10-13). See "Policy pages" below.
 4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
    - Production database: in Atlas, create a new DB user (for example `coovi_prod`) with read/write on a new database named `coovi-prod` only, and keep the connection string ready.
@@ -62,7 +62,7 @@ Open pull requests:
 
 ## Data lives in the database, not the seed
 
-The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pexels photos (20 added through the admin API, 6 existing ones re-imaged); from 2026-10-12 the owner is replacing them with real photos stored on Cloudinary. `coovi-api/src/seed.ts` is stale and does **not** contain them, so re-running seed would not reproduce this data. Do not run seed unless you intend to replace it. The demo order `ORD-20260920-814` was deleted 2026-10-27.
+The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pexels photos (20 added through the admin API, 6 existing ones re-imaged); from 2026-10-12 the owner is replacing them with real photos stored on Cloudinary. `coovi-api/src/seed.ts` is stale and does **not** contain them, so re-running seed would not reproduce this data. Do not run seed unless you intend to replace it. The demo orders `ORD-20260920-814` and `ORD-20260919-558` were deleted 2026-10-27.
 
 ## Admin and API extras (done 2026-10-04, tests pass)
 
@@ -117,7 +117,6 @@ Later (P3): discount codes, bulk actions, stock history, homepage banner from th
 - WhatsApp number `8801700000000` (header, contact page, product page). Change it on the admin Settings page; no code change or redeploy needed.
 - Pexels stock photos (replace with real saree photos using the admin "Upload photos" button); the logo is a text recreation, so use an SVG export of the real logo if available.
 - Generic care-guide copy on the product tabs; the delivery and "check before you pay" accordions now link to the policy pages.
-- Decide whether to delete order `ORD-20260919-558` ("Test Customer").
 - Dev admin credentials (`ADMIN_EMAIL` / `ADMIN_PASSWORD` in `coovi-api/.env`, gitignored) and `CORS_ORIGINS` for production.
 
 ## Design reference workflow
