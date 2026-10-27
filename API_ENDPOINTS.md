@@ -282,7 +282,7 @@ Without `money.view`, `money` and every `value` field are left out.
 
 - 2026-10-15: deleting a product also deletes its photos from Cloudinary; the storefront no longer puts the customer's phone in the order page link (`/order-confirmation/<number>`; the phone is kept in a cookie for that page) (coovi-api, coovi-storefront, branch `claude/project-thread-deqibw`).
 
-- 2026-10-15: phone check by call: `POST /orders` returns `429` when the phone already has 3 `Pending` website orders, and order creation is limited to 5 an hour per address (was 20); orders gain admin-only `callConfirmed`, set with the new `PATCH /orders/:id/call-confirmed` and from the start on manual orders (coovi-api, coovi-admin, coovi-storefront, branch `claude/checkout-phone-check-f5pfyv`).
+- 2026-10-15: phone check by call: `POST /orders` returns `429` when the phone already has 3 `Pending` website orders, and order creation is limited to 5 an hour per address (was 20); orders gain admin-only `callConfirmed`, set with the new `PATCH /orders/:id/call-confirmed` and from the start on manual orders (coovi-api#36, coovi-admin#29, coovi-storefront#27, merged 2026-10-27).
 
 - 2026-10-15: customers and block list: new `GET /customers`, `GET /customers/:phone` and `PUT /customers/:phone/block`; the admin order list adds `blockedPhone` to orders from a blocked phone, which are still accepted (coovi-api#34, coovi-admin#28).
 
