@@ -54,7 +54,7 @@ Items 26 and 29 to 37 come from the security review of 2026-10-13 (all three app
 
 | # | Item | Why it matters | Who |
 |---|---|---|---|
-| 22 | **Steadfast booking built, waiting on your Steadfast account (coovi-api#18, coovi-admin#12).** Courier integration (Pathao, Steadfast, RedX) and tracking numbers (plan feature 4). | Saves typing every parcel by hand and lets customers track deliveries. | Both |
+| 22 | **Steadfast booking built, waiting on your Steadfast account (coovi-api#18, coovi-admin#12).** Still open: open a Steadfast merchant account, set `STEADFAST_API_KEY` and `STEADFAST_SECRET_KEY` on Render (merchant portal, API section), book one real test parcel, and show the tracking code on the storefront's track-order page. | Saves typing every parcel by hand and lets customers track deliveries. | Both |
 | 23 | **Done: coovi-api#33, coovi-admin#27 (merged 2026-10-15).** Real order pagination and search in the admin (plan feature 12). The admin downloads every order on every visit. | Slows down once there are thousands of orders. | Claude |
 | 24 | **Mostly done: order notes and change history with who and when, coovi-api#16 (merged 2026-10-13).** Audit log of who changed what (plan G3 and feature 3). | Needed once more than one person manages orders. | Claude |
 | 25 | Visitor analytics (Vercel Analytics or Google Analytics, with a cookie notice if required). | Tells you which sarees people look at and where they drop off. | Both |
