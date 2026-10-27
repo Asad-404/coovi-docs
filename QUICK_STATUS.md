@@ -1,6 +1,6 @@
 # COOVI Quick Status
 
-Last updated: 2026-10-13. All dev servers are **stopped**; nothing is running.
+Last updated: 2026-10-15. All dev servers are **stopped**; nothing is running.
 Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`. Missing business features: `docs/FEATURE_GAPS.md`.
 
 ## Waiting on you
@@ -11,8 +11,9 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
    - Production database: in Atlas, create a new DB user (for example `coovi_prod`) with read/write on a new database named `coovi-prod` only, and keep the connection string ready.
    - Production secrets, saved in a password manager: a new `JWT_SECRET` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`), a production admin email and a strong admin password.
-   - Business details to tell Claude (not secrets): the real WhatsApp number, the delivery fees in BDT (inside Dhaka city, and outside Dhaka including suburbs) and the production admin email.
+   - Real WhatsApp number: set it yourself on the admin Settings page (no code change). The delivery fees were set on Render on 2026-10-13.
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
+7. **Your go-live items** (database, backups, paid plans, domain, registration) are listed in `docs/GO_LIVE_CHECKLIST.md`, marked **You**. Owner decision 2026-10-15: leave them for now; Claude works on items with no blockers.
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
 
 ## Docs repository
@@ -41,17 +42,19 @@ Local: `git branch -D <name>`. Remote: `git push origin --delete <name>`, or the
 
 ## Where we are
 
-All work is merged into `master` on GitHub, no pull request is open, and local `master` matches `origin/master` with a clean working tree in all three repos (checked 2026-10-12).
+Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live on `master`:
 
-| Repo | Merged pull requests | Open |
+- **Orders:** pre-orders for out-of-stock sarees, new-order email alerts (Resend), private notes and change history, refused-at-door `Returned` status with restock, manual order entry (Facebook, WhatsApp, phone), delivery fee by district, courier cash (COD) tracking on the "Courier payments" page.
+- **Shop settings page:** WhatsApp number, support phone, announcement and low-stock limit, edited in the admin.
+- **Safety:** seed guard, harder-to-guess order numbers with one-phone lookup, storefront server rate limit and caching, Next.js 16.3.8, security headers on the admin and storefront, and the 2026-10-13 security review fixes.
+
+Open pull requests:
+
+| Pull requests | What | Waiting on |
 |---|---|---|
-| `coovi-api` | #1 sale pricing and hardening, #2 forward-only order status and admin order edits, #3 endpoint alignment, #4 PR template, #5 CI, #6 Cloudinary upload signature | none |
-| `coovi-admin` | #1 redesign extras, #2 theme, order flow, filters, tests, #3 products switched off for sale, #4 PR template, #5 CI, #6 Vercel SPA rewrite, #7 photo upload button | none |
-| `coovi-storefront` | #1 tests and CI, #2 redesign, #3 accessibility fixes, #4 Phase 2 design, #5 API limits and availability, #6 PR template, #7 cart-open page jump and pointer cursor, #8 Cloudinary image host | none |
-
-Verified 2026-10-07 by running them: `coovi-api` typecheck and 79 tests; `coovi-admin` lint, build and 29 tests; `coovi-storefront` lint, typecheck and 82 tests (on the Phase 2 branch). Re-run 2026-10-12 on the Cloudinary branches: `coovi-api` typecheck and 84 tests; `coovi-admin` lint, build and 38 tests; `coovi-storefront` lint, typecheck and 84 tests. `pnpm build` for the storefront has still not been run.
-
-All three apps work end to end. The storefront was redesigned to follow the Diponty (diponty.com) layout with Coovi's own branding.
+| coovi-api#18, coovi-admin#12, coovi-docs#11 | Book parcels with Steadfast and save the tracking code | Your Steadfast merchant account and API keys |
+| coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
+| coovi-api, coovi-admin, coovi-docs on `claude/project-thread-deqibw` | Roles (owner, manager, staff, viewer) with per-person View and Edit access on the Team page, sign out everywhere on password change | Your review (opened 2026-10-15) |
 
 | App | Port | Stack |
 |---|---|---|
@@ -59,7 +62,7 @@ All three apps work end to end. The storefront was redesigned to follow the Dipo
 | `coovi-storefront` | 3000 | Next.js 16, React 19, Tailwind 4, Zustand |
 | `coovi-admin` | 5173 | Vite, React 19, MUI 9, React Query 5 |
 
-## Done this session
+## Earlier work (2026-10-04 to 2026-10-12)
 
 - **Storefront redesign** (desktop 1440 and phone 375 checked with screenshots): top bar, header with MENU on mobile, announcement strip, hero, promo, New Arrivals, All Products, Why Coovi, footer.
 - **Pages:** `/shop` (sort, Load More), `/sale`, product detail (gallery, quantity + Add to cart, COD note, accordions, tabs, related products), empty-cart state, cart drawer. Header and mobile menu have search.
@@ -99,20 +102,21 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
 - Real-phone check; checkout and order-confirmation pages were restyled by colour only.
 
-## Backlog (not built yet), in suggested order
+## Backlog (not built yet), in build order
 
-Admin features have a full implementation plan in `docs/ADMIN_FEATURE_PLAN.md` (written 2026-10-12, 18 features in 6 phases, nothing built yet).
+Approved by the owner on 2026-10-15 (plan in the project files, `reviews/PLAN_UNBLOCKED_FEATURES_2026-10-15.md`). Each step is its own set of pull requests.
 
-0. Before launch (small): real WhatsApp number; owner review of the policy wording (below); replace remaining placeholder copy.
-1. Order notifications to the owner (email, SMS or WhatsApp). Nothing alerts you today.
-2. Done, merged and live 2026-10-12: admin "Upload photos" button, stored on Cloudinary's free plan (cloud `ebhb5jfl`, folder `coovi/products`). `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` are set in `coovi-api/.env` and on Render; without them the button reports that upload is not configured. Owner tested an upload locally and on the live admin. Still open: deleting a product leaves its photos on Cloudinary.
-3. Delivery fee by area: built, in review 2026-10-13 (coovi-api#14, coovi-admin#16, coovi-storefront#15). District dropdown at checkout; Dhaka city pays the inside fee, Dhaka suburbs and other districts the outside fee. Fees are placeholders (70 / 130) until you set `DELIVERY_FEE_INSIDE_DHAKA` and `DELIVERY_FEE_OUTSIDE_DHAKA` on Render. Merge the API first.
-5. Admin: add a second admin account (change password is done).
-6. Admin orders: real pagination (lists load 100). Internal notes and change history are built and awaiting merge (coovi-api#16, coovi-admin#10).
-8. Categories (admin list + storefront category pages); everything is "Saree" now.
-9. Discount codes; reviews, wishlist, back-in-stock; Google structured data on product pages.
-10. Before launch: everything in `docs/GO_LIVE_CHECKLIST.md` (written 2026-10-13: production database, seed guard, backups, API that stays awake, storefront rate limit, order alerts, order lookup hardening, hosting terms, domain, error tracking, uptime alerts; security review items 26 and 29 to 37 added 2026-10-13, with the Next.js upgrade (item 29) in Priority 1).
-11. Optional: Diponty-style product attributes (color, fabric, work, length), hero banners managed from admin, Bengali copy, icon on mobile header.
+1. Done (merged 2026-10-15: coovi-api#31, coovi-admin#25): roles (owner, manager, staff, viewer) with per-person View and Edit access edited on the Team page, and sign out everywhere when a password changes (plan feature 13, checklist item 18).
+2. Done (merged 2026-10-15: coovi-api#32, coovi-admin#26): statistics dashboard with cost price and profit (plan feature 11). `GET /api/stats` counts on the server for a date range; money cards (delivered revenue, profit, average order, cash with the courier) only for people with money access; best sellers, refused rate, orders by district and source. Products get a cost price field; orders placed before a cost is set show profit as unknown.
+3. Done (merged 2026-10-15: coovi-api#33, coovi-admin#27): admin orders load one page at a time (25, 50 or 100), with search by order number, name or phone, and status, area, source and date filters done by the API; CSV export still includes every matching order (plan feature 12).
+4. Done (merged 2026-10-15, coovi-api#34, coovi-admin#28): a Customers page (everyone who has ordered, by phone, with delivered, refused and cancelled counts) and a block list (plan feature 8). Owner decision 2026-10-15: a blocked phone's order is accepted but shown in red in the admin for a confirmation call, not refused. The order window also shows that number's history.
+5. In review: small cleanups: delete a product's photos from Cloudinary with the product (checklist item 28); move the phone number out of the order-confirmation link (checklist item 37).
+
+Not now (owner decision 2026-10-15): categories, saree details (fabric, colour, work) and shop filters (plan features 7 and 9a).
+
+Waiting on the owner: Steadfast booking and the customer tracking link (Steadfast account), customer SMS (SMS company), error tracking (free Sentry account), Facebook Pixel and analytics (when ads start), and the **You** items in `docs/GO_LIVE_CHECKLIST.md`.
+
+Later (P3): discount codes, bulk actions, stock history, homepage banner from the admin, product variants, reviews and back-in-stock, wishlist, customer accounts, online payment, WhatsApp alerts, Bengali copy, icon on the mobile header.
 
 ## Policy pages (done 2026-10-04): owner must review
 
@@ -120,7 +124,7 @@ Admin features have a full implementation plan in `docs/ADMIN_FEATURE_PLAN.md` (
 
 ## Placeholders to replace before launch
 
-- WhatsApp number `8801700000000` (header, contact page, product page). Once the shop settings pull requests (coovi-api#22, coovi-admin#14, coovi-storefront#13) are merged, change it on the admin Settings page; no code change or redeploy needed.
+- WhatsApp number `8801700000000` (header, contact page, product page). Change it on the admin Settings page; no code change or redeploy needed.
 - Pexels stock photos (replace with real saree photos using the admin "Upload photos" button); the logo is a text recreation, so use an SVG export of the real logo if available.
 - Generic care-guide copy on the product tabs; the delivery and "check before you pay" accordions now link to the policy pages.
 - Delete the `test-saree` demo product and the demo order.
