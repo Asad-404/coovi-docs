@@ -9,13 +9,13 @@ COOVI is a workspace containing three independent app repositories, plus a docs 
 - `coovi-storefront` — Next.js 16 customer storefront on port 3000.
 - `coovi-admin` — Vite/React admin panel on port 5173.
 
-Run Git commands, commits, and reviews inside the repository they concern. The workspace root is the private `coovi-docs` repository (default branch `main`, set up 2026-10-12): it tracks only the root documents, `docs/` and `tools/`, and its `.gitignore` excludes the three app folders. Never add app code to it.
+Run Git commands, commits, and reviews inside the repository they concern. The workspace root is the private `coovi-docs` repository (default branch `master`, renamed from `main` 2026-10-27): it tracks only the root documents, `docs/` and `tools/`, and its `.gitignore` excludes the three app folders. Never add app code to it.
 
 ## Operating rules
 
 - Claude may run tests, lint, typecheck and builds to verify a change (allowed by the owner 2026-10-07).
 - Do not start dev servers, previews, seed scripts, or deployments unless explicitly requested. The user runs projects manually.
-- Claude may push feature branches and open pull requests with `gh` (allowed by the owner 2026-10-07). Never push `master` (or `main` in `coovi-docs`), never force-push, and never merge a pull request; the owner merges.
+- Claude may push feature branches and open pull requests with `gh` (allowed by the owner 2026-10-07). Never push `master`, never force-push, and never merge a pull request; the owner merges.
 - Ask before changing device, hardware, emulator, OS, or other environment-level configuration.
 - Keep credentials and real environment values in each app's ignored `.env` files; use `.env.example` for shared configuration shape.
 - Prefer the existing project-specific `CLAUDE.md` and generated instruction files over adding duplicate rules.
