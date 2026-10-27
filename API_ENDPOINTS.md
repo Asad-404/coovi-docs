@@ -15,7 +15,7 @@ Source of truth is the code in `coovi-api/src/routes/`; update this file in the 
 | Permission | Allows | Role presets |
 |---|---|---|
 | `orders.view` | `GET /orders` | manager, staff, viewer |
-| `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `PATCH /orders/:id/call-confirmed`, `POST /orders/:id/notes` | manager, staff |
+| `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `PATCH /orders/:id/call-confirmed`, `POST /orders/:id/notes`, `POST /orders/:id/courier/steadfast`, `POST /orders/:id/courier/steadfast/refresh` | manager, staff |
 | `orders.export` | the admin CSV export button (the data comes from `GET /orders`) | manager |
 | `products.view` | the admin product list | manager, staff, viewer |
 | `products.edit` | `POST /products`, `PUT /products/:id`, `POST /uploads/signature` | manager, staff |
@@ -46,6 +46,7 @@ The API is the source of truth for prices, stock, delivery fee, order totals, or
 | `price` | number | **current selling price**; what orders charge |
 | `compareAtPrice?` | number | original price before a discount. The product is **on sale** when `compareAtPrice > price` |
 | `images` | string[] | at least 1 `https://` URL |
+| `shareImage?` | string | `https://` URL of a wide 1200x630 picture for social media link previews (the admin checks the size before upload). Without it the storefront uses the first photo |
 | `size?` | string | |
 | `category` | string | default `Saree` |
 | `stock` | number | |
@@ -84,18 +85,18 @@ Returns `{ data: { costPrice } }`, where `costPrice` is `null` when none is set,
 Returns `{ success, data: Product }`, or `404` `Product not found`.
 
 ### `POST /products` (products.edit)
-Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15) optional.
+Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15) optional.
 `price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Optional `costPrice` (0 or more) needs `money.view`, otherwise `403`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (products.edit)
-Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (products.delete)
-Returns `{ success, message }` or `404`. The product's photos are deleted from Cloudinary too (only photos in this shop's `coovi/products` folder). A photo still used by another product or shown on an order line is kept, and a Cloudinary failure never stops the product being deleted.
+Returns `{ success, message }` or `404`. The product's photos and share image are deleted from Cloudinary too (only photos in this shop's `coovi/products` folder). A photo still used by another product (as a photo or share image) or shown on an order line is kept, and a Cloudinary failure never stops the product being deleted.
 
 ## Orders
 
-Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `district?` (one of the 64 districts; missing on orders placed before delivery areas), `deliveryArea` (`inside_dhaka` or `outside_dhaka`; older orders without it count as `inside_dhaka`), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `discount` (taka off the items, `0` unless an admin agreed one on a manual order), `deliveryFee`, `total` (`subtotal - discount + deliveryFee`), `status`, `paymentMethod` (COD), `notes?` (the customer's own note), `source` (`website`, `facebook`, `whatsapp`, `phone` or `other`; orders saved before 2026-10-13 read as `website`), `returnedAt?`, `createdAt`, `updatedAt`.
+Order object: `_id`, `orderNumber` (`ORD-YYYYMMDD-XXXXXX`: the order's date in Bangladesh time, then 6 random characters from `23456789ABCDEFGHJKMNPQRSTVWXYZ`; orders placed before 2026-10-13 keep the older `ORD-YYYYMMDD-NNN`), `customerName`, `phone`, `address` (string), `district?` (one of the 64 districts; missing on orders placed before delivery areas), `deliveryArea` (`inside_dhaka` or `outside_dhaka`; older orders without it count as `inside_dhaka`), `items[]` (`productId`, `name`, `price`, `quantity`, `image`, `size?`, copied from the product at order time; `preorder` (boolean) and `preorderDays?` mark a line sourced for the customer), `subtotal`, `discount` (taka off the items, `0` unless an admin agreed one on a manual order), `deliveryFee`, `total` (`subtotal - discount + deliveryFee`), `status`, `paymentMethod` (COD), `notes?` (the customer's own note), `source` (`website`, `facebook`, `whatsapp`, `phone` or `other`; orders saved before 2026-10-13 read as `website`), `courier?` (`name` `"Steadfast"`, `consignmentId`, `trackingCode`, `status` (Steadfast's own delivery status, for example `in_review`, `pending`, `hold`, `delivered`, `cancelled`), `bookedAt`, `statusCheckedAt`; present once the parcel is booked), `returnedAt?`, `createdAt`, `updatedAt`.
 Admin-only fields, returned by the admin routes and never by `POST /orders` or `GET /orders/:orderNumber`: `internalNotes[]` (`text`, `by`, `byId`, `at`), `statusHistory[]` (`from?`, `to`, `by`, `byId?`, `at`) `editHistory[]` (`changes[]` of `{ field, from?, to? }`, `by`, `byId`, `at`), `cancelReason?` (why it was cancelled or the parcel came back) `restocked?` (whether a refused parcel went back into stock) `createdBy?` (email of the admin who entered a manual order) and `callConfirmed?` (`by`, `byId?`, `at`: the admin who called the customer and confirmed the order; missing until someone does, set on manual orders from the start). `by` is the admin's email, or `customer` for the order being placed; `byId` is the admin id. All three are append-only and are empty arrays on orders placed before 2026-10-13.
 Statuses: `Pending`, `Processing`, `Shipped`, `Delivered`, `Cancelled`, `Returned`.
 
@@ -122,7 +123,7 @@ The first `statusHistory` entry names the admin who entered it. Returns `201 { d
 Returns `{ data: { deliveryFee, zones: { inside_dhaka, outside_dhaka }, districts: string[] } }`. `zones` holds the fee per area, the same amounts orders are charged; `deliveryFee` repeats the inside-Dhaka fee for older clients. `districts` is the 64-district list checkout offers. Fees come from `.env` `DELIVERY_FEE_INSIDE_DHAKA` and `DELIVERY_FEE_OUTSIDE_DHAKA` (placeholder defaults 70 and 130 until the owner sets real ones); the old `DELIVERY_FEE` is still read as the inside-Dhaka fee.
 
 ### `GET /orders/:orderNumber?phone=01XXXXXXXXX` (public)
-Order number and phone together act as the guest's credentials. Missing phone returns `400`, and so does anything other than exactly one phone in the checkout format (a repeated `?phone=`, an object, a malformed number); wrong phone or unknown order returns the same `404 Order not found`. The admin-only fields are left out.
+Order number and phone together act as the guest's credentials. The order includes `courier` (with the tracking code) once booked. Missing phone returns `400`, and so does anything other than exactly one phone in the checkout format (a repeated `?phone=`, an object, a malformed number); wrong phone or unknown order returns the same `404 Order not found`. The admin-only fields are left out.
 
 ### `GET /orders` (orders.view)
 Query: `page` (1), `limit` (20, max 100), `status`, `deliveryArea` (`inside_dhaka` also matches older orders without an area), `source` (`website` also matches older orders without a source), `search` (up to 100 characters; partial, case-insensitive match on order number, customer name or phone, taken literally), `from` and `to` (days the order was placed, `YYYY-MM-DD` in Bangladesh time, both included, either can be left out). Filters combine; bad values fall back to defaults (a bad date is ignored). Returns `{ data: Order[], serverTime, pagination: { page, limit, total, pages } }`, newest first; `total` counts every match across pages.
@@ -143,6 +144,19 @@ Any other change, including the same status again, returns `409` naming the allo
 - `Processing` to `Cancelled`: stock is restored for lines that are not pre-orders.
 - `Shipped` to `Returned`: stock is restored for lines that are not pre-orders, unless `restock` is `false`.
 - Pre-order lines never take or return stock: a piece bought for a pre-order is not added to `stock`.
+
+Cancelling an order booked with Steadfast does not cancel the parcel at Steadfast; that is done in the Steadfast merchant portal.
+
+### `POST /orders/:id/courier/steadfast` (orders.edit)
+No body. Books the parcel with the Steadfast merchant API: invoice is the `orderNumber`, recipient name, phone, address (with the order's `district` added when the address doesn't name it) and `notes` come from the order, and the cash to collect is the order's `total`. Only `Processing` orders can be booked. Returns `201 { data: Order }` with `courier` filled in. The order's own `status` does not change. Errors:
+- `409`: the order is not `Processing`, is already booked (the message names the tracking code), or is being booked by another request right now.
+- `400`: the address is longer than Steadfast's 250 characters (shorten it with `PATCH /orders/:id` first).
+- `404`: unknown order.
+- `502`: Steadfast refused the booking, timed out or could not be reached; the message carries Steadfast's reason and the order stays bookable.
+- `503 Steadfast courier is not configured on the server`: `STEADFAST_API_KEY` or `STEADFAST_SECRET_KEY` is missing.
+
+### `POST /orders/:id/courier/steadfast/refresh` (orders.edit)
+No body. Asks Steadfast for the parcel's current delivery status and saves it in `courier.status` and `courier.statusCheckedAt`. Does not change the order's own `status`. Returns `{ data: Order }`, `409` if the order was never booked, `404`, `502` or `503` as above.
 
 ### `PATCH /orders/:id/call-confirmed` (orders.edit)
 Body (strict) `{ "confirmed": true }` or `{ "confirmed": false }`. `true` stamps `callConfirmed` with the admin and time; `false` removes it. Each real change adds an `editHistory` entry with field `callConfirmed` from `no`/`yes` to `yes`/`no`; sending the current value changes nothing. Returns `{ data: Order }`, `400` for a bad body, `404` if the order is unknown, or `409` for a `Delivered`, `Cancelled` or `Returned` order or when someone else changed it at the same moment. The API does not require it before `Processing`; the admin panel asks first.
@@ -264,11 +278,15 @@ Without `money.view`, `money` and every `value` field are left out.
 
 ## Changelog
 
+- 2026-10-13: Steadfast courier booking. Orders gain an optional `courier` object; new admin routes `POST /orders/:id/courier/steadfast` and `POST /orders/:id/courier/steadfast/refresh` (coovi-api#18).
+
 - 2026-10-15: deleting a product also deletes its photos from Cloudinary; the storefront no longer puts the customer's phone in the order page link (`/order-confirmation/<number>`; the phone is kept in a cookie for that page) (coovi-api, coovi-storefront, branch `claude/project-thread-deqibw`).
 
 - 2026-10-15: phone check by call: `POST /orders` returns `429` when the phone already has 3 `Pending` website orders, and order creation is limited to 5 an hour per address (was 20); orders gain admin-only `callConfirmed`, set with the new `PATCH /orders/:id/call-confirmed` and from the start on manual orders (coovi-api, coovi-admin, coovi-storefront, branch `claude/checkout-phone-check-f5pfyv`).
 
 - 2026-10-15: customers and block list: new `GET /customers`, `GET /customers/:phone` and `PUT /customers/:phone/block`; the admin order list adds `blockedPhone` to orders from a blocked phone, which are still accepted (coovi-api#34, coovi-admin#28).
+
+- 2026-10-20: products gain an optional `shareImage` (`https://`, 1200x630) for social media link previews; cleared when a `PUT` leaves it out, deleted from Cloudinary with the product (coovi-api, coovi-admin, coovi-storefront, branch `claude/social-share-previews-kg0ucw`).
 
 - 2026-10-15: `GET /orders` gains `search`, `source`, `from` and `to`; the admin loads one page of orders at a time (coovi-api#33, coovi-admin#27).
 
