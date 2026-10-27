@@ -1,6 +1,6 @@
 # COOVI Quick Status
 
-Last updated: 2026-10-15. All dev servers are **stopped**; nothing is running.
+Last updated: 2026-10-20. All dev servers are **stopped**; nothing is running.
 Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`. Missing business features: `docs/FEATURE_GAPS.md`.
 
 ## Waiting on you
@@ -37,7 +37,7 @@ Local: `git branch -D <name>`. Remote: `git push origin --delete <name>`, or the
 - API: https://coovi-api.onrender.com (Render free plan, deployed 2026-10-07; `/health` returns ok). Build command `pnpm install --frozen-lockfile --prod=false && pnpm build`, start `node dist/index.js`.
 - It uses the **dev** Atlas database for now (owner's choice, to test first). Switching `MONGODB_URI` to `coovi-prod` later gives an empty database: the admin is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD` on first boot and products must be re-added through the admin. Changing `ADMIN_PASSWORD` on Render later does not change an existing admin's password.
 - Storefront: https://coovi-storefront.vercel.app and admin: https://coovi-admin.vercel.app (Vercel Hobby, deployed 2026-10-07 from `master`; every merge to `master` redeploys). Checked 2026-10-07: products load, canonical and sitemap use the real address, admin deep links work, API allows both origins.
-- `CORS_ORIGINS` on Render matches the two Vercel addresses. Vercel env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL` (storefront), `VITE_API_URL` (admin); a change needs a redeploy.
+- `CORS_ORIGINS` on Render matches the two Vercel addresses. Vercel env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_META_PIXEL_ID` (storefront, pixel off while empty), `VITE_API_URL` (admin); a change needs a redeploy.
 - The site is public and search engines may index it while it still has some stock photos, the placeholder WhatsApp number and dev data.
 
 ## Where we are
@@ -112,11 +112,11 @@ Approved by the owner on 2026-10-15 (plan in the project files, `reviews/PLAN_UN
 2. Done (merged 2026-10-15: coovi-api#32, coovi-admin#26): statistics dashboard with cost price and profit (plan feature 11). `GET /api/stats` counts on the server for a date range; money cards (delivered revenue, profit, average order, cash with the courier) only for people with money access; best sellers, refused rate, orders by district and source. Products get a cost price field; orders placed before a cost is set show profit as unknown.
 3. Done (merged 2026-10-15: coovi-api#33, coovi-admin#27): admin orders load one page at a time (25, 50 or 100), with search by order number, name or phone, and status, area, source and date filters done by the API; CSV export still includes every matching order (plan feature 12).
 4. Done (merged 2026-10-15, coovi-api#34, coovi-admin#28): a Customers page (everyone who has ordered, by phone, with delivered, refused and cancelled counts) and a block list (plan feature 8). Owner decision 2026-10-15: a blocked phone's order is accepted but shown in red in the admin for a confirmation call, not refused. The order window also shows that number's history.
-5. In review: small cleanups: delete a product's photos from Cloudinary with the product (checklist item 28); move the phone number out of the order-confirmation link (checklist item 37).
+5. Done (merged 2026-10-15: coovi-api#35, coovi-storefront#26): small cleanups: delete a product's photos from Cloudinary with the product (checklist item 28); move the phone number out of the order-confirmation link (checklist item 37).
 
 Not now (owner decision 2026-10-15): categories, saree details (fabric, colour, work) and shop filters (plan features 7 and 9a).
 
-Waiting on the owner: Steadfast booking and the customer tracking link (Steadfast account), customer SMS (SMS company), error tracking (free Sentry account), Facebook Pixel and analytics (when ads start), and the **You** items in `docs/GO_LIVE_CHECKLIST.md`.
+Waiting on the owner: Steadfast booking and the customer tracking link (Steadfast account), customer SMS (SMS company), error tracking (free Sentry account), visitor analytics, the Meta Pixel ID (pixel built, checklist item 38; the server copy waits until ads start), and the **You** items in `docs/GO_LIVE_CHECKLIST.md`.
 
 Later (P3): discount codes, bulk actions, stock history, homepage banner from the admin, product variants, reviews and back-in-stock, wishlist, customer accounts, online payment, WhatsApp alerts, Bengali copy, icon on the mobile header.
 
