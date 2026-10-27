@@ -54,7 +54,6 @@ Open pull requests:
 |---|---|---|
 | coovi-api#18, coovi-admin#12, coovi-docs#11 | Book parcels with Steadfast and save the tracking code | Your Steadfast merchant account and API keys |
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
-| coovi-api, coovi-admin, coovi-docs on `claude/project-thread-deqibw` | Roles (owner, manager, staff, viewer) with per-person View and Edit access on the Team page, sign out everywhere on password change | Your review (opened 2026-10-15) |
 
 | App | Port | Stack |
 |---|---|---|
