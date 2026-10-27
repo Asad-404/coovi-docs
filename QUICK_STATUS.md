@@ -1,12 +1,12 @@
 # COOVI Quick Status
 
-Last updated: 2026-10-20. All dev servers are **stopped**; nothing is running.
+Last updated: 2026-10-27. All dev servers are **stopped**; nothing is running.
 Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`. Missing business features: `docs/FEATURE_GAPS.md`.
 
 ## Waiting on you
 
-1. **Delete the old branches yourself** (Claude's delete was blocked on 2026-10-12). Every branch other than `master` in all three repos is the exact head of a merged pull request (checked 2026-10-12), so none holds unmerged work. See "Old branches to delete" below.
-2. **Delete the demo data yourself** (Claude's delete was blocked): product `test-saree` ("Updated Test Saree") and order `ORD-20260920-814` ("Smoke Test"). Use the admin panel for the product; the order needs Atlas (the admin has no delete-order button). Order `ORD-20260919-558` ("Test Customer") also looks like test data.
+1. Done 2026-10-27: old branches deleted, locally and on GitHub, in all four repos. Each one was the head of a merged pull request, or already contained in `master`. The only branch kept is `claude/project-thread-qolyc8` (open coovi-api#15).
+2. **Decide on order `ORD-20260919-558`** ("Test Customer", Delivered, Pink Chiffon Saree, 1659): it looks like test data but is still in the database. The demo order `ORD-20260920-814` ("Smoke Test") was deleted 2026-10-27, and the `test-saree` product was already gone.
 3. **Policy pages: add your real terms** (delivery time; no returns after delivery, decided 2026-10-13). See "Policy pages" below.
 4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
    - Production database: in Atlas, create a new DB user (for example `coovi_prod`) with read/write on a new database named `coovi-prod` only, and keep the connection string ready.
@@ -21,16 +21,6 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 The workspace root is the private `Asad-404/coovi-docs` repository (branch `main`, set up and merged 2026-10-12, pull request #1). It tracks only the root documents, `docs/` and `tools/`; the three app folders are ignored. The 13 planning files from 2026-09-17 were removed and stay in the Git history (commit `79758b1`). Doc changes go through a branch and pull request like the apps.
 
 Removed 2026-10-13 because they were out of date, and still in the Git history: `DEPLOYMENT_PLAN.md` (the apps are deployed; see "Live deployment"), `docs/PROGRESS.md` (old task log and learning notes) and `docs/AIDLC_TODO.md` (its open steps are item 4 above). To read one again: `git show 300b9a2:docs/PROGRESS.md`.
-
-## Old branches to delete
-
-Git reports these as unmerged only because the pull requests were squash-merged or the branch was merged with a merge commit on GitHub. GitHub keeps each pull request's commits, so a deleted branch can be restored from its pull request page.
-
-- `coovi-storefront` local: `claude/phase1-a11y-fixes`, `claude/phase2-design-refinements`, `feat/diponty-inspired-storefront-ui`, `fix/cart-open-shift-and-pointer`, `feature/cloudinary-image-host`. Remote: the same five plus `ccr-1cd6ed7a-xy0mle`, `ccr-a9c4492e-bz5894`, `claude/add-test-coverage`.
-- `coovi-api` local: `ci/add-workflow`, `feat/redesign-sale-pricing-launch-prep`, `feature/cloudinary-upload-signature`. Remote: the same three plus `ccr-1cd6ed7a-xy0mle`, `ccr-a9c4492e-bz5894`, `ccr-f8eafd56-jah2yx`.
-- `coovi-admin` local: `chore/vercel-spa-rewrite`, `ci/add-workflow`, `feat/redesign-sale-pricing-launch-prep`, `feature/cloudinary-photo-upload`. Remote: the same four plus `ccr-1cd6ed7a-xy0mle`, `ccr-a9c4492e-bz5894`, `ccr-f8eafd56-jah2yx`.
-
-Local: `git branch -D <name>`. Remote: `git push origin --delete <name>`, or the Branches page on GitHub.
 
 ## Live deployment
 
@@ -52,7 +42,6 @@ Open pull requests:
 
 | Pull requests | What | Waiting on |
 |---|---|---|
-| coovi-api#18, coovi-admin#12, coovi-docs#11 | Book parcels with Steadfast and save the tracking code | Your Steadfast merchant account and API keys |
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
 
 | App | Port | Stack |
@@ -73,7 +62,7 @@ Open pull requests:
 
 ## Data lives in the database, not the seed
 
-The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pexels photos (20 added through the admin API, 6 existing ones re-imaged); from 2026-10-12 the owner is replacing them with real photos stored on Cloudinary. `coovi-api/src/seed.ts` is stale and does **not** contain them, so re-running seed would not reproduce this data. Do not run seed unless you intend to replace it. A demo order (`ORD-20260920-814`, phone `01712345678`) also exists.
+The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pexels photos (20 added through the admin API, 6 existing ones re-imaged); from 2026-10-12 the owner is replacing them with real photos stored on Cloudinary. `coovi-api/src/seed.ts` is stale and does **not** contain them, so re-running seed would not reproduce this data. Do not run seed unless you intend to replace it. The demo order `ORD-20260920-814` was deleted 2026-10-27.
 
 ## Admin and API extras (done 2026-10-04, tests pass)
 
@@ -128,7 +117,7 @@ Later (P3): discount codes, bulk actions, stock history, homepage banner from th
 - WhatsApp number `8801700000000` (header, contact page, product page). Change it on the admin Settings page; no code change or redeploy needed.
 - Pexels stock photos (replace with real saree photos using the admin "Upload photos" button); the logo is a text recreation, so use an SVG export of the real logo if available.
 - Generic care-guide copy on the product tabs; the delivery and "check before you pay" accordions now link to the policy pages.
-- Delete the `test-saree` demo product and the demo order.
+- Decide whether to delete order `ORD-20260919-558` ("Test Customer").
 - Dev admin credentials (`ADMIN_EMAIL` / `ADMIN_PASSWORD` in `coovi-api/.env`, gitignored) and `CORS_ORIGINS` for production.
 
 ## Design reference workflow
