@@ -15,7 +15,7 @@ Source of truth is the code in `coovi-api/src/routes/`; update this file in the 
 | Permission | Allows | Role presets |
 |---|---|---|
 | `orders.view` | `GET /orders` | manager, staff, viewer |
-| `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `POST /orders/:id/notes` | manager, staff |
+| `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `POST /orders/:id/notes`, `POST /orders/:id/courier/steadfast`, `POST /orders/:id/courier/steadfast/refresh` | manager, staff |
 | `orders.export` | the admin CSV export button (the data comes from `GET /orders`) | manager |
 | `products.view` | the admin product list | manager, staff, viewer |
 | `products.edit` | `POST /products`, `PUT /products/:id`, `POST /uploads/signature` | manager, staff |
