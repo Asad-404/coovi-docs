@@ -36,9 +36,11 @@ Removed 2026-10-13 because they were out of date, and still in the Git history: 
 Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live on `master`:
 
 - **Orders:** pre-orders for out-of-stock sarees, new-order email alerts (Resend), private notes and change history, refused-at-door `Returned` status with restock, manual order entry (Facebook, WhatsApp, phone), delivery fee by district, courier cash (COD) tracking on the "Courier payments" page.
+- **Order tracking (coovi-storefront#32, merged 2026-10-31):** the Track Order form opens `/track-order/<number>` with status steps and the order details, instead of the "Order placed!" page. A wrong phone or unknown number says to check the details; the API being down or busy shows the error page.
 - **Shop settings page:** WhatsApp number, support phone, announcement and low-stock limit, edited in the admin.
 - **Safety:** seed guard, harder-to-guess order numbers with one-phone lookup, storefront server rate limit and caching, Next.js 16.3.8, security headers on the admin and storefront, and the 2026-10-13 security review fixes.
 - **Order numbers (merged 2026-10-31: coovi-api#39, coovi-storefront#31, coovi-admin#31):** new orders get 6 random characters such as `K7M3QX` instead of `ORD-YYYYMMDD-XXXXXX`. There is no migration or lookup for old numbers, because the owner deleted the old orders. With `DELIVERY_FEE=60` in a local `coovi-api/.env`, 2 fee tests fail (`tests/orders.test.ts`, `tests/deliveryAreas.test.ts`) because they expect the default of 70; they pass with it blanked.
+- **Storefront, merged 2026-10-31:** each page has its own loading skeleton (coovi-storefront#33). The home hero has a solid blue-grey background, three slanted photo panels and a light sweep (coovi-storefront#34).
 
 Open pull requests:
 
@@ -91,6 +93,7 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 
 ## Not verified yet
 
+- Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
 - Real-phone check; checkout and order-confirmation pages were restyled by colour only.
 
