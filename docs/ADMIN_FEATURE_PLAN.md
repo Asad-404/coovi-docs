@@ -320,7 +320,7 @@ Checkout is guest-only, so a "customer" is a phone number.
 - `ProductFormPage.tsx`: category becomes a dropdown. `ProductsPage.tsx`: category filter (`utils/productFilters.ts`).
 
 **Storefront**
-- New `/category/[slug]` page reusing the `/shop` grid, plus sitemap and `llms.txt` entries.
+- New `/category/[slug]` page reusing the `/saree` grid, plus sitemap and `llms.txt` entries.
 - Category links in the header menu. This changes navigation, so get the owner's approval on placement first.
 
 **Tests**: CRUD; duplicate slug; delete blocked while in use; product with an unknown category rejected; startup conversion runs once.

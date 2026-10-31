@@ -49,7 +49,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 
 | Feature | State | Priority | Plan | Notes |
 |---|---|---|---|---|
-| Browse, search, sort, sale page | Have | | | `/shop`, `/sale`, search in header. |
+| Browse, search, sort, sale page | Have | | | `/saree`, `/sale`, search in header. |
 | Product page with photo gallery | Have | | | Gallery, quantity, related products. |
 | Cart and guest cash-on-delivery checkout | Have | | | Prices and totals from the API. |
 | Order confirmation and order tracking by number and phone | Have | | | Tracking has its own page with status steps (coovi-storefront#32). Status only, no courier tracking. |
