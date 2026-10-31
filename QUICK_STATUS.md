@@ -38,6 +38,7 @@ Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live o
 - **Orders:** pre-orders for out-of-stock sarees, new-order email alerts (Resend), private notes and change history, refused-at-door `Returned` status with restock, manual order entry (Facebook, WhatsApp, phone), delivery fee by district, courier cash (COD) tracking on the "Courier payments" page.
 - **Shop settings page:** WhatsApp number, support phone, announcement and low-stock limit, edited in the admin.
 - **Safety:** seed guard, harder-to-guess order numbers with one-phone lookup, storefront server rate limit and caching, Next.js 16.3.8, security headers on the admin and storefront, and the 2026-10-13 security review fixes.
+- **Storefront, merged 2026-10-31:** each page has its own loading skeleton (coovi-storefront#33). The home hero has a solid blue-grey background, three slanted photo panels and a light sweep (coovi-storefront#34).
 
 Open pull requests:
 
