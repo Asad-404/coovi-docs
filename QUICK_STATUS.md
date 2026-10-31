@@ -15,7 +15,7 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
 7. **Your go-live items** (database, backups, paid plans, domain, registration) are listed in `docs/GO_LIVE_CHECKLIST.md`, marked **You**. Owner decision 2026-10-15: leave them for now; Claude works on items with no blockers.
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
-8. **Renumber existing orders to 6 characters (not run yet).** After the coovi-api PR is merged and deployed: back up `orders` and `courierpayments` in Atlas, run `pnpm migrate:order-numbers` in `coovi-api` and save the output (it changes nothing; check the database name and the list), then run `pnpm migrate:order-numbers --apply`. Parcels already at Steadfast keep the old number as their invoice; search the admin panel by its last 6 characters.
+8. **Renumber existing orders to 6 characters (not run yet).** After the coovi-api PR is merged and deployed: back up `orders` and `courierpayments` in Atlas, run `pnpm migrate:order-numbers` in `coovi-api` (it changes nothing; check the database name and the list), then run `pnpm migrate:order-numbers --apply` and save its output as the old-to-new record. Any fresh codes differ from the ones the first command showed. Parcels already at Steadfast keep the old number as their invoice; search the admin panel by its last 6 characters.
 
 ## Docs repository
 
