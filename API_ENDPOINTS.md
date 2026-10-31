@@ -278,6 +278,8 @@ Without `money.view`, `money` and every `value` field are left out.
 
 ## Changelog
 
+- 2026-10-31: no API change. The storefront's Track Order form now opens `/track-order/<number>` instead of `/order-confirmation/<number>`, with the phone in a cookie for that page only; the confirmation page is for checkout (coovi-storefront#32).
+
 - 2026-10-13: Steadfast courier booking. Orders gain an optional `courier` object; new admin routes `POST /orders/:id/courier/steadfast` and `POST /orders/:id/courier/steadfast/refresh` (coovi-api#18).
 
 - 2026-10-15: deleting a product also deletes its photos from Cloudinary; the storefront no longer puts the customer's phone in the order page link (`/order-confirmation/<number>`; the phone is kept in a cookie for that page) (coovi-api, coovi-storefront, branch `claude/project-thread-deqibw`).
