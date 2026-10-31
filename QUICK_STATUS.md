@@ -57,7 +57,7 @@ Open pull requests:
 ## Earlier work (2026-10-04 to 2026-10-12)
 
 - **Storefront redesign** (desktop 1440 and phone 375 checked with screenshots): top bar, header with MENU on mobile, announcement strip, hero, promo, New Arrivals, All Products, Why Coovi, footer.
-- **Pages:** `/shop` (sort, Load More), `/sale`, product detail (gallery, quantity + Add to cart, COD note, accordions, tabs, related products), empty-cart state, cart drawer. Header and mobile menu have search.
+- **Pages:** `/saree` (sort, Load More), `/sale`, product detail (gallery, quantity + Add to cart, COD note, accordions, tabs, related products), empty-cart state, cart drawer. Header and mobile menu have search.
 - **Sale pricing:** API `compareAtPrice` + `GET /products?onSale=true`; admin "Original price" field and On-sale chip; storefront Sale badges and struck-through prices. Orders still charge `price`.
 - **Brand:** navy `#0C2953` + cyan `#06B5E4` palette from the logo (tokens in `coovi-storefront/app/globals.css`), text-recreated wordmark (`components/Logo.tsx`), `C.` favicon (`app/icon.svg`), Nunito + Inter fonts, light-only theme. Admin MUI theme uses the same colours.
 - **Fixes:** page was 2x too wide on phones (closed cart drawer); cart drawer was clipped to the header (now portaled to `<body>`).
@@ -130,7 +130,7 @@ Later (P3): discount codes, bulk actions, stock history, homepage banner from th
 
 ## Known notes
 
-- `/shop` Load More asks for `12 x page` products at once, so it caps at the API limit of 50.
+- `/saree` Load More asks for `12 x page` products at once, so it caps at the API limit of 50.
 - Next 16 returns HTTP 200 for `notFound()` once streaming starts (soft 404); product pages carry `noindex` as mitigation.
 - Claude may run tests, lint and builds and push feature branches (owner said yes 2026-10-07); dev servers, seed scripts and `master` stay with the owner (see root `CLAUDE.md`).
 
