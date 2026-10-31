@@ -15,7 +15,7 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
 7. **Your go-live items** (database, backups, paid plans, domain, registration) are listed in `docs/GO_LIVE_CHECKLIST.md`, marked **You**. Owner decision 2026-10-15: leave them for now; Claude works on items with no blockers.
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
-8. **Delete all existing orders and courier payments yourself.** Owner decision 2026-10-31: new orders use 6-character numbers such as `K7M3QX`, and old orders are not carried over.
+8. Done 2026-10-31: the owner deleted all existing orders, so none were carried over to the new 6-character numbers such as `K7M3QX`. **Still to check:** any courier payments recorded for those orders, which keep their own copy of the old numbers.
 
 ## Docs repository
 
