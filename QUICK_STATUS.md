@@ -38,6 +38,7 @@ Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live o
 - **Orders:** pre-orders for out-of-stock sarees, new-order email alerts (Resend), private notes and change history, refused-at-door `Returned` status with restock, manual order entry (Facebook, WhatsApp, phone), delivery fee by district, courier cash (COD) tracking on the "Courier payments" page.
 - **Shop settings page:** WhatsApp number, support phone, announcement and low-stock limit, edited in the admin.
 - **Safety:** seed guard, harder-to-guess order numbers with one-phone lookup, storefront server rate limit and caching, Next.js 16.3.8, security headers on the admin and storefront, and the 2026-10-13 security review fixes.
+- **Order numbers (merged 2026-10-31: coovi-api#39, coovi-storefront#31, coovi-admin#31):** new orders get 6 random characters such as `K7M3QX` instead of `ORD-YYYYMMDD-XXXXXX`. There is no migration or lookup for old numbers, because the owner deleted the old orders. With `DELIVERY_FEE=60` in a local `coovi-api/.env`, 2 fee tests fail (`tests/orders.test.ts`, `tests/deliveryAreas.test.ts`) because they expect the default of 70; they pass with it blanked.
 
 Open pull requests:
 
