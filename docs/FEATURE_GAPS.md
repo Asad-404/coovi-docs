@@ -55,7 +55,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Order confirmation and order tracking by number and phone | Have | | | Tracking has its own page with status steps (coovi-storefront#32). Status only, no courier tracking. |
 | Policy pages (returns, delivery, privacy, terms) | Have | | | Wording still needs your real terms (see `QUICK_STATUS.md`). |
 | SEO, share cards, sitemap | Have | | | |
-| **District and area at checkout** | Have | P1 | 5 | District dropdown with a Dhaka city or suburbs choice. Pull requests coovi-api#14, coovi-admin#16, coovi-storefront#15 (2026-10-13). |
+| **District and area at checkout** | Have | P1 | 5 | District dropdown plus Inside Dhaka or Outside Dhaka radios that stay in step; Dhaka suburbs count as outside. Pull requests coovi-api#14, coovi-admin#16, coovi-storefront#15 (2026-10-13), coovi-storefront#41 (2026-11-01). |
 | **Delivery fee by area** | Have | P1 | 5 | Inside Dhaka city and outside Dhaka (suburbs included); the live fees on 2026-11-01 were 70 and 130, the same as the placeholders, so the owner should confirm them. Same pull requests. |
 | **Order confirmation SMS to the customer** | Built, waiting on SMS company | P1 | New | Customers expect an SMS with the order number; it also cuts "did my order go through?" calls. Needs an SMS provider account (for example SSL Wireless, BulkSMSBD). |
 | WhatsApp and Messenger chat button | Partial | P1 | | WhatsApp link exists with the placeholder number; no Messenger. |

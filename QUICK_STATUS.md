@@ -42,6 +42,7 @@ Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live o
 - **Order numbers (merged 2026-10-31: coovi-api#39, coovi-storefront#31, coovi-admin#31):** new orders get 6 random characters such as `K7M3QX` instead of `ORD-YYYYMMDD-XXXXXX`. There is no migration or lookup for old numbers, because the owner deleted the old orders. With `DELIVERY_FEE=60` in a local `coovi-api/.env`, 2 fee tests fail (`tests/orders.test.ts`, `tests/deliveryAreas.test.ts`) because they expect the default of 70; they pass with it blanked.
 - **Storefront, merged 2026-10-31:** each page has its own loading skeleton (coovi-storefront#33). The home hero has a solid blue-grey background, three slanted photo panels and a light sweep (coovi-storefront#34).
 - **Storefront, merged 2026-10-31 and 2026-11-01:** the collection moved from `/shop` to `/saree` (coovi-storefront#36), the cart drawer no longer shakes (#37), pages that set their own Open Graph keep the share card (#38), the product image zooms on hover (#39), and above-the-fold photos load eagerly (#40).
+- **Checkout, merged 2026-11-01 (coovi-storefront#41):** Inside Dhaka and Outside Dhaka radios with both fees sit in the order summary, with nothing preselected, and stay in step with the district. The address box is split into house and road, flat or floor, and area or thana, joined into the API's one `address` string. The place order button moved under the summary. No API change.
 - **Products, merged 2026-11-01:** products can be saved as drafts and published later (coovi-api#41, coovi-admin#33). Publishing needs at least 3 photos and a share image, and opening a published product for editing asks for confirmation first (coovi-api#42, coovi-admin#34).
 
 Open pull requests:
@@ -99,12 +100,13 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 
 ## Not verified yet
 
+- Checkout radios and address fields (coovi-storefront#41, merged 2026-11-01): tests, lint, typecheck and build pass, but Claude did not open it in a browser. At phone and desktop width, check the radios in the order summary, pick Inside Dhaka and then another district, and place one test order.
 - Publish block on the product form (coovi-api#41, coovi-admin#33, merged 2026-11-01): tests, lint and build pass, but Claude did not open it in a browser. Save a draft, check it is missing from the shop, publish it, then unpublish it.
 - Photo rules and edit confirmation (coovi-api#42, coovi-admin#34, merged 2026-11-01): tests, lint and build pass, but Claude did not open them in a browser. Try uploading a square photo, publishing with 2 photos and with no share image, then open a published product for editing and press both Go back and Edit product. Published products from before the rules keep working until their pictures are changed or they are republished.
 - Phone admin (coovi-admin#32, merged 2026-11-01): checked at 375 px in headless Chrome with a fake API, not on a real phone or against the real API. On a phone, check Call and WhatsApp, photo upload, the keyboard with the Save bar, and Print slip.
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
-- Real-phone check; checkout and order-confirmation pages were restyled by colour only.
+- Real-phone check; the order-confirmation page was restyled by colour only.
 
 ## Backlog (not built yet), in build order
 
