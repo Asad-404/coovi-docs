@@ -47,7 +47,7 @@ Open pull requests:
 | Pull requests | What | Waiting on |
 |---|---|---|
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
-| coovi-admin, branch `feature/phone-first-admin` | Admin redesigned for running the shop from a phone | Your check on a real phone, then merge |
+| coovi-admin, branch `feature/phone-first-admin` | Admin redesigned for running the shop from a phone | Your merge, then your check on a real phone (the Vercel preview cannot sign in; revert the merge if something is wrong) |
 
 | App | Port | Stack |
 |---|---|---|
