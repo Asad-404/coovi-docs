@@ -1,6 +1,6 @@
 # Missing business features
 
-Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi has them today. Written 2026-10-13 (states re-checked against GitHub on 2026-10-15) by reading the code in all three apps and comparing it with `docs/ADMIN_FEATURE_PLAN.md`. Safety and hosting gaps (backups, rate limits, domain) are in `docs/GO_LIVE_CHECKLIST.md`, not here.
+Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi has them today. Written 2026-10-13 (states re-checked against GitHub on 2026-11-01) by reading the code in all three apps and comparing it with `docs/ADMIN_FEATURE_PLAN.md`. Safety and hosting gaps (backups, rate limits, domain) are in `docs/GO_LIVE_CHECKLIST.md`, not here.
 
 ## How to read this file
 
@@ -14,14 +14,14 @@ Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi
 | | Have | Built, waiting on you or in review | Partial | Missing |
 |---|---|---|---|---|
 | Customer side (storefront) | 8 | 1 | 4 | 12 |
-| Running orders (admin) | 11 | 2 | 2 | 9 |
-| Selling and marketing | 0 | 0 | 1 | 5 |
+| Running orders (admin) | 18 | 1 | 1 | 5 |
+| Selling and marketing | 0 | 0 | 2 | 4 |
 
 P1 status on 2026-10-15: new-order email alerts, pre-orders, district and delivery fee by area, internal notes and history, refused-parcel returns with restock, courier cash collection, shop settings and manual order entry are built and merged. Steadfast booking and the customer order SMS are built and wait on your Steadfast account and your choice of SMS company. The next build order is in `QUICK_STATUS.md` (Backlog).
 
 ## Admin feature plan coverage
 
-Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below. As of 2026-10-15 features 1, 2, 3, 5, 6, 11 (statistics), 12 (order pages and search), 13 (roles) and 14 are built and merged, 4 (Steadfast) and 8 (customers and block list) are in review, and the rest are not built. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
+Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below. As of 2026-11-01 features 1, 2, 3, 5, 6, 8 (customers and block list), 11 (statistics), 12 (order pages and search), 13 (roles) and 14 are built and merged, 4 (Steadfast) is merged and waits on your Steadfast account, and the rest are not built. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
 
 | Plan # | Feature | Table and priority |
 |---|---|---|
@@ -56,7 +56,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Policy pages (returns, delivery, privacy, terms) | Have | | | Wording still needs your real terms (see `QUICK_STATUS.md`). |
 | SEO, share cards, sitemap | Have | | | |
 | **District and area at checkout** | Have | P1 | 5 | District dropdown with a Dhaka city or suburbs choice. Pull requests coovi-api#14, coovi-admin#16, coovi-storefront#15 (2026-10-13). |
-| **Delivery fee by area** | Have | P1 | 5 | Inside Dhaka city and outside Dhaka (suburbs included); placeholder fees 70 and 130 until the owner sets real ones. Same pull requests. |
+| **Delivery fee by area** | Have | P1 | 5 | Inside Dhaka city and outside Dhaka (suburbs included); the live fees on 2026-11-01 were 70 and 130, the same as the placeholders, so the owner should confirm them. Same pull requests. |
 | **Order confirmation SMS to the customer** | Built, waiting on SMS company | P1 | New | Customers expect an SMS with the order number; it also cuts "did my order go through?" calls. Needs an SMS provider account (for example SSL Wireless, BulkSMSBD). |
 | WhatsApp and Messenger chat button | Partial | P1 | | WhatsApp link exists with the placeholder number; no Messenger. |
 | Contact form | Partial | P2 | | Contact page has a `mailto:support@coovi.com` link; that address only works once you own the domain. |
@@ -80,6 +80,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Feature | State | Priority | Plan | Notes |
 |---|---|---|---|---|
 | Products: add, edit, delete, photo upload, sale price, stock | Have | | | |
+| Draft and publish, with photo rules | Have | | New | 2026-11-01: save a draft, publish when it has at least 3 upright 3:4 photos and a 1200 x 630 share image, and confirm before editing a published product (coovi-api#41, #42, coovi-admin#33, #34). |
 | Orders: list, filter by status and date, search, status changes | Have | | | Status only moves forward; stock taken on confirm. |
 | Edit customer contact details on an order | Have | | | |
 | CSV export and printable slip | Have | | | |
@@ -93,16 +94,16 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | **Shop settings page** (WhatsApp number, support phone, announcement text, low-stock limit) | Have | P1 | 6 | Pull requests coovi-api#22, coovi-admin#14, coovi-storefront#13 (2026-10-13). Delivery fees stay with the delivery-by-area work (owner decision 2026-10-13). |
 | Dashboard and reports | Have | P2 | 11 | 2026-10-15: server-side statistics for any date range: what needs doing now, money cards, profit, refused rate, best sellers, districts and order sources. |
 | Product cost price and profit | Have | P2 | New | 2026-10-15: admin-only cost price on each product, copied onto orders; profit counts delivered orders with a cost price. |
-| Customers list and repeat buyers | Have (in review) | P2 | 8 | 2026-10-15: Customers page by phone, with order history in the order window. |
+| Customers list and repeat buyers | Have | P2 | 8 | 2026-10-15: Customers page by phone, with order history in the order window. |
 | Fake-order check (block list, courier delivery-success check by phone) | Partial | P2 | 8 (block list), New (courier check) | 2026-10-15: block list merged; blocked numbers' orders are accepted and shown in red. 2026-10-27: "Confirmed by call" tick and at most 3 unconfirmed orders per phone merged (coovi-api#36, coovi-admin#29). The courier delivery-success check still needs a Steadfast account. |
 | Real pagination and server search on orders | Have | P2 | 12 | 2026-10-15: the admin loads one page at a time and the API does the search and filters. |
-| Staff accounts and roles | In review | P2 | 13 | Four roles with per-person View and Edit access on a Team page, branch `claude/project-thread-deqibw` (2026-10-15). Moved up by the owner. |
+| Staff accounts and roles | Have | P2 | 13 | Four roles with per-person View and Edit access on a Team page (coovi-api#31, coovi-admin#25, 2026-10-15). Moved up by the owner. |
 | Bulk actions (confirm or print many orders) | Missing | P3 | 15 | |
 | Stock history log | Missing | P3 | 17 | |
 | Homepage banner from the admin | Missing | P3 | 16 | |
 | Product variants (same design, several colours) | Missing | P3 | 9b | Only if you stock repeats; owner is not sure yet, so it stays last. |
 | Expenses and simple accounts | Missing | P3 | New | |
-| Delete a product's photos from Cloudinary when the product is deleted | Missing | P3 | New | Open item from the photo upload work in `QUICK_STATUS.md`. |
+| Delete a product's photos from Cloudinary when the product is deleted | Have | P3 | New | coovi-api#35, 2026-10-15. |
 
 ## Selling and marketing
 
