@@ -55,6 +55,10 @@ Open pull requests:
 | `coovi-storefront` | 3000 | Next.js 16, React 19, Tailwind 4, Zustand |
 | `coovi-admin` | 5173 | Vite, React 19, MUI 9, React Query 5 |
 
+## Phone admin (2026-11-01, in review)
+
+Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the admin must work from a phone. Under 900 px it has bottom tabs, cards instead of tables, Call and WhatsApp on every order and customer, and each order's next step as its main button, which asks before moving the order. Wider screens keep the tables, so a laptop can come back later.
+
 ## Earlier work (2026-10-04 to 2026-10-12)
 
 - **Storefront redesign** (desktop 1440 and phone 375 checked with screenshots): top bar, header with MENU on mobile, announcement strip, hero, promo, New Arrivals, All Products, Why Coovi, footer.
@@ -95,6 +99,7 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 ## Not verified yet
 
 - Publish block on the product form (coovi-api#41, coovi-admin#33): tests, lint and build pass, but Claude did not open it in a browser. Save a draft, check it is missing from the shop, publish it, then unpublish it.
+- Phone admin (`feature/phone-first-admin`): checked at 375 px in headless Chrome with a fake API, not on a real phone or against the real API. On a phone, check Call and WhatsApp, photo upload, the keyboard with the Save bar, and Print slip.
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
 - Real-phone check; checkout and order-confirmation pages were restyled by colour only.
