@@ -124,7 +124,7 @@ Later (P3): discount codes, bulk actions, stock history, homepage banner from th
 
 ## Policy pages (done 2026-10-04): owner must review
 
-`/return-policy`, `/delivery-policy` (shows the live delivery fee), `/privacy-policy`, `/terms` and a branded 404 (`app/not-found.tsx`) exist, are in the footer, sitemap, `llms.txt`, checkout and product page. The wording only states what the shop actually does (COD, flat fee, guest checkout, check parcel before paying) and deliberately has **no deadlines, refund method or delivery-time numbers**. Please add your real terms (return window in days, how refunds are paid, delivery time) and have the terms/privacy text checked if you need it to be legally binding. Content lives in `coovi-storefront/app/<page>/page.tsx`; the shared layout is `components/PolicyPage.tsx` (`POLICY_UPDATED` date).
+`/return-policy`, `/delivery-policy` (shows the live delivery fee), `/privacy-policy`, `/terms` and a branded 404 (`app/not-found.tsx`) exist, are in the footer, sitemap, `llms.txt`, checkout and product page. The wording only states what the shop actually does (COD, delivery fee by area, guest checkout, check parcel before paying) and deliberately has **no deadlines, refund method or delivery-time numbers**. Please add your real terms (return window in days, how refunds are paid, delivery time) and have the terms/privacy text checked if you need it to be legally binding. Content lives in `coovi-storefront/app/<page>/page.tsx`; the shared layout is `components/PolicyPage.tsx` (`POLICY_UPDATED` date).
 
 ## Placeholders to replace before launch
 
