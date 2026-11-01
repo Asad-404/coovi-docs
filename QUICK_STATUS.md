@@ -1,6 +1,6 @@
 # COOVI Quick Status
 
-Last updated: 2026-10-31. All dev servers are **stopped**; nothing is running.
+Last updated: 2026-11-01. All dev servers are **stopped**; nothing is running.
 Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`. Missing business features: `docs/FEATURE_GAPS.md`.
 
 ## Waiting on you
@@ -47,12 +47,17 @@ Open pull requests:
 | Pull requests | What | Waiting on |
 |---|---|---|
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
+| coovi-admin, branch `feature/phone-first-admin` | Admin redesigned for running the shop from a phone | Your check on a real phone, then merge |
 
 | App | Port | Stack |
 |---|---|---|
 | `coovi-api` | 5000 | Express 5, TypeScript, Mongoose, MongoDB Atlas |
 | `coovi-storefront` | 3000 | Next.js 16, React 19, Tailwind 4, Zustand |
 | `coovi-admin` | 5173 | Vite, React 19, MUI 9, React Query 5 |
+
+## Phone admin (2026-11-01, in review)
+
+Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the admin must work from a phone. Under 900 px it has bottom tabs, cards instead of tables, Call and WhatsApp on every order and customer, and each order's next step as its main button, which asks before moving the order. Wider screens keep the tables, so a laptop can come back later.
 
 ## Earlier work (2026-10-04 to 2026-10-12)
 
@@ -93,6 +98,7 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 
 ## Not verified yet
 
+- Phone admin (`feature/phone-first-admin`): checked at 375 px in headless Chrome with a fake API, not on a real phone or against the real API. On a phone, check Call and WhatsApp, photo upload, the keyboard with the Save bar, and Print slip.
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
 - Real-phone check; checkout and order-confirmation pages were restyled by colour only.
