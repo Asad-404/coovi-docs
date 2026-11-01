@@ -525,9 +525,9 @@ Split in two, because the first half is cheap and the second is the biggest chan
 
 ## Open questions for the owner
 
-1. **Alerts**: Telegram, email, or both? Telegram is the quickest to set up.
+1. **Alerts**: answered 2026-10-13: email first, WhatsApp later. Email alerts are built.
 2. **Returns**: answered 2026-10-13: no returns after delivery, so `Delivered -> Returned` was dropped.
-3. **Delivery areas**: are two zones enough, or is a third (Dhaka suburbs) needed? Which couriers will be used?
-4. **Blocked customers**: refuse the order outright, or accept it and flag it for a confirmation call?
+3. **Delivery areas**: built with two zones, inside Dhaka city and outside Dhaka (suburbs count as outside). Courier: Steadfast.
+4. **Blocked customers**: answered 2026-10-15: accept the order and flag it for a confirmation call.
 5. **Variants**: does the shop stock the same design in several colours, or is each saree one of a kind? This decides whether 9b is ever needed.
-6. **Staff**: will anyone else use the admin in the next few months? If not, 13 can move to the end.
+6. **Staff**: answered 2026-10-15: roles were moved up and are built.

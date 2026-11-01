@@ -5,13 +5,13 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 
 ## Waiting on you
 
-1. Done 2026-10-27: old branches deleted, locally and on GitHub, in all four repos. Each one was the head of a merged pull request, or already contained in `master`. The only branch kept is `claude/project-thread-qolyc8` (open coovi-api#15).
+1. Done 2026-10-27: old branches deleted, locally and on GitHub, in all four repos. Each one was the head of a merged pull request, or already contained in `master`. The only branch kept was `claude/project-thread-qolyc8` (open coovi-api#15). Checked 2026-11-01: branches from later pull requests are on GitHub again. `claude/og-image-all-pages` and `layout-fix` in coovi-storefront each show one commit not on `master`, so check them before deleting.
 2. Done 2026-10-27: demo data deleted. Orders `ORD-20260920-814` ("Smoke Test") and `ORD-20260919-558` ("Test Customer") are gone; the `test-saree` product was already gone.
 3. **Policy pages: add your real terms** (delivery time; no returns after delivery, decided 2026-10-13). See "Policy pages" below.
 4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
    - Production database: in Atlas, create a new DB user (for example `coovi_prod`) with read/write on a new database named `coovi-prod` only, and keep the connection string ready.
    - Production secrets, saved in a password manager: a new `JWT_SECRET` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`), a production admin email and a strong admin password.
-   - Real WhatsApp number: set it yourself on the admin Settings page (no code change). The delivery fees were set on Render on 2026-10-13.
+   - Real WhatsApp number: set it yourself on the admin Settings page (no code change). The delivery fees were recorded as set on Render on 2026-10-13. **To confirm:** on 2026-11-01 the live API returned 70 and 130, the same as the placeholders, so check these are your real fees.
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
 7. **Your go-live items** (database, backups, paid plans, domain, registration) are listed in `docs/GO_LIVE_CHECKLIST.md`, marked **You**. Owner decision 2026-10-15: leave them for now; Claude works on items with no blockers.
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
@@ -29,7 +29,7 @@ Removed 2026-10-13 because they were out of date, and still in the Git history: 
 - It uses the **dev** Atlas database for now (owner's choice, to test first). Switching `MONGODB_URI` to `coovi-prod` later gives an empty database: the admin is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD` on first boot and products must be re-added through the admin. Changing `ADMIN_PASSWORD` on Render later does not change an existing admin's password.
 - Storefront: https://coovi-storefront.vercel.app and admin: https://coovi-admin.vercel.app (Vercel Hobby, deployed 2026-10-07 from `master`; every merge to `master` redeploys). Checked 2026-10-07: products load, canonical and sitemap use the real address, admin deep links work, API allows both origins.
 - `CORS_ORIGINS` on Render matches the two Vercel addresses. Vercel env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_META_PIXEL_ID` (storefront, pixel off while empty), `VITE_API_URL` (admin); a change needs a redeploy.
-- The site is public and search engines may index it while it still has some stock photos, the placeholder WhatsApp number and dev data.
+- The site is public and search engines may index it while it still has the placeholder WhatsApp number and dev data.
 
 ## Where we are
 
@@ -41,6 +41,8 @@ Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live o
 - **Safety:** seed guard, harder-to-guess order numbers with one-phone lookup, storefront server rate limit and caching, Next.js 16.3.8, security headers on the admin and storefront, and the 2026-10-13 security review fixes.
 - **Order numbers (merged 2026-10-31: coovi-api#39, coovi-storefront#31, coovi-admin#31):** new orders get 6 random characters such as `K7M3QX` instead of `ORD-YYYYMMDD-XXXXXX`. There is no migration or lookup for old numbers, because the owner deleted the old orders. With `DELIVERY_FEE=60` in a local `coovi-api/.env`, 2 fee tests fail (`tests/orders.test.ts`, `tests/deliveryAreas.test.ts`) because they expect the default of 70; they pass with it blanked.
 - **Storefront, merged 2026-10-31:** each page has its own loading skeleton (coovi-storefront#33). The home hero has a solid blue-grey background, three slanted photo panels and a light sweep (coovi-storefront#34).
+- **Storefront, merged 2026-10-31 and 2026-11-01:** the collection moved from `/shop` to `/saree` (coovi-storefront#36), the cart drawer no longer shakes (#37), pages that set their own Open Graph keep the share card (#38), the product image zooms on hover (#39), and above-the-fold photos load eagerly (#40).
+- **Products, merged 2026-11-01:** products can be saved as drafts and published later (coovi-api#41, coovi-admin#33). Publishing needs at least 3 photos and a share image, and opening a published product for editing asks for confirmation first (coovi-api#42, coovi-admin#34).
 
 Open pull requests:
 
@@ -54,7 +56,7 @@ Open pull requests:
 | `coovi-storefront` | 3000 | Next.js 16, React 19, Tailwind 4, Zustand |
 | `coovi-admin` | 5173 | Vite, React 19, MUI 9, React Query 5 |
 
-## Phone admin (2026-11-01, in review)
+## Phone admin (merged 2026-11-01, coovi-admin#32)
 
 Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the admin must work from a phone. Under 900 px it has bottom tabs, cards instead of tables, Call and WhatsApp on every order and customer, and each order's next step as its main button, which asks before moving the order. Wider screens keep the tables, so a laptop can come back later.
 
@@ -70,7 +72,7 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 
 ## Data lives in the database, not the seed
 
-The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pexels photos (20 added through the admin API, 6 existing ones re-imaged); from 2026-10-12 the owner is replacing them with real photos stored on Cloudinary. `coovi-api/src/seed.ts` is stale and does **not** contain them, so re-running seed would not reproduce this data. Do not run seed unless you intend to replace it. The demo orders `ORD-20260920-814` and `ORD-20260919-558` were deleted 2026-10-27.
+**To confirm:** on 2026-11-01 the live shop listed 6 products, 2 on sale, all with Cloudinary photos and none with a Pexels photo. Earlier notes recorded 26 products, 6 on sale and mostly Pexels photos. The public list leaves out drafts, so check the admin Products page to see whether the other 20 are drafts or were deleted. None of the 6 has 3 photos or a share image yet: they stay live, but changing their pictures or republishing them needs both. `coovi-api/src/seed.ts` is stale and does **not** contain them, so re-running seed would not reproduce this data. Do not run seed unless you intend to replace it. The demo orders `ORD-20260920-814` and `ORD-20260919-558` were deleted 2026-10-27.
 
 ## Admin and API extras (done 2026-10-04, tests pass)
 
@@ -91,7 +93,7 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 - Search results and `?page=` pages are `noindex,follow`; cart, checkout and track-order are `noindex`.
 - **Set `NEXT_PUBLIC_SITE_URL` (real https address, no trailing slash) in Vercel before the first production build**, or canonical, sitemap and share links point to localhost. Template: `coovi-storefront/.env.example`.
 - In `next dev` the share image address shows `localhost`; production uses `NEXT_PUBLIC_SITE_URL` (checked in Next source).
-- Product link previews (Facebook, Messenger, WhatsApp; in review 2026-10-20, branch `claude/social-share-previews-kg0ucw`): each product can have a **share image** uploaded in the admin product form. Make it **1200 x 630 px, JPG, under 300 KB**, with the saree and any text in the middle 630 x 630 square (WhatsApp and small Messenger previews crop to a square). Without one the first product photo is used, which tall saree photos crop badly. The preview text starts with the price and stock (`shareDescription` in `coovi-storefront/lib/utils.ts`).
+- Product link previews (Facebook, Messenger, WhatsApp): each product can have a **share image** uploaded in the admin product form. Make it **1200 x 630 px, JPG, under 300 KB**, with the saree and any text in the middle 630 x 630 square (WhatsApp and small Messenger previews crop to a square). Without one the first product photo is used, which tall saree photos crop badly. The preview text starts with the price and stock (`shareDescription` in `coovi-storefront/lib/utils.ts`).
 - Checking a product link before sharing: open https://developers.facebook.com/tools/debug/, paste the product address, press **Debug**. It shows the picture, title and text Facebook will use. After changing a product's image or text, press **Scrape Again**, otherwise Facebook can keep showing its old copy for weeks. WhatsApp keeps its own copy too; a link shared there before the change can keep the old preview.
 - Still to do for SEO: submit the sitemap in Google Search Console once the domain is live; real product photos and descriptions help rankings most.
 
@@ -99,7 +101,7 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 
 - Publish block on the product form (coovi-api#41, coovi-admin#33, merged 2026-11-01): tests, lint and build pass, but Claude did not open it in a browser. Save a draft, check it is missing from the shop, publish it, then unpublish it.
 - Photo rules and edit confirmation (coovi-api#42, coovi-admin#34, merged 2026-11-01): tests, lint and build pass, but Claude did not open them in a browser. Try uploading a square photo, publishing with 2 photos and with no share image, then open a published product for editing and press both Go back and Edit product. Published products from before the rules keep working until their pictures are changed or they are republished.
-- Phone admin (`feature/phone-first-admin`): checked at 375 px in headless Chrome with a fake API, not on a real phone or against the real API. On a phone, check Call and WhatsApp, photo upload, the keyboard with the Save bar, and Print slip.
+- Phone admin (coovi-admin#32, merged 2026-11-01): checked at 375 px in headless Chrome with a fake API, not on a real phone or against the real API. On a phone, check Call and WhatsApp, photo upload, the keyboard with the Save bar, and Print slip.
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
 - Real-phone check; checkout and order-confirmation pages were restyled by colour only.
@@ -127,7 +129,7 @@ Later (P3): discount codes, bulk actions, stock history, homepage banner from th
 ## Placeholders to replace before launch
 
 - WhatsApp number `8801700000000` (header, contact page, product page). Change it on the admin Settings page; no code change or redeploy needed.
-- Pexels stock photos (replace with real saree photos using the admin "Upload photos" button); the logo is a text recreation, so use an SVG export of the real logo if available.
+- The logo is a text recreation, so use an SVG export of the real logo if available.
 - Generic care-guide copy on the product tabs; the delivery and "check before you pay" accordions now link to the policy pages.
 - Dev admin credentials (`ADMIN_EMAIL` / `ADMIN_PASSWORD` in `coovi-api/.env`, gitignored) and `CORS_ORIGINS` for production.
 
@@ -150,4 +152,4 @@ cd /d/Work/COOVI/coovi-admin && pnpm dev
 curl http://localhost:5000/api/products
 ```
 
-Quick health check once running: `curl http://localhost:5000/api/orders/delivery-fee` should return `{"success":true,"data":{"deliveryFee":60}}`.
+Quick health check once running: `curl http://localhost:5000/api/orders/delivery-fee` should return `success: true` with `deliveryFee`, `zones` and `districts`.
