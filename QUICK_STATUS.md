@@ -1,6 +1,6 @@
 # COOVI Quick Status
 
-Last updated: 2026-10-31. All dev servers are **stopped**; nothing is running.
+Last updated: 2026-11-01. All dev servers are **stopped**; nothing is running.
 Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`. Missing business features: `docs/FEATURE_GAPS.md`.
 
 ## Waiting on you
@@ -47,6 +47,7 @@ Open pull requests:
 | Pull requests | What | Waiting on |
 |---|---|---|
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
+| coovi-api#41, then coovi-admin#33 | Save a product as a draft and publish it later; merge the API first | Your review |
 
 | App | Port | Stack |
 |---|---|---|
@@ -93,6 +94,7 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 
 ## Not verified yet
 
+- Publish block on the product form (coovi-api#41, coovi-admin#33): tests, lint and build pass, but Claude did not open it in a browser. Save a draft, check it is missing from the shop, publish it, then unpublish it.
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
 - Real-phone check; checkout and order-confirmation pages were restyled by colour only.
