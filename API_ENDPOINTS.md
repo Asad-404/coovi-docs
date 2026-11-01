@@ -17,7 +17,7 @@ Source of truth is the code in `coovi-api/src/routes/`; update this file in the 
 | `orders.view` | `GET /orders` | manager, staff, viewer |
 | `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `PATCH /orders/:id/call-confirmed`, `POST /orders/:id/notes`, `POST /orders/:id/courier/steadfast`, `POST /orders/:id/courier/steadfast/refresh` | manager, staff |
 | `orders.export` | the admin CSV export button (the data comes from `GET /orders`) | manager |
-| `products.view` | the admin product list | manager, staff, viewer |
+| `products.view` | `GET /products/manage`, `GET /products/manage/:slug` (the admin product list and form) | manager, staff, viewer |
 | `products.edit` | `POST /products`, `PUT /products/:id`, `POST /uploads/signature` | manager, staff |
 | `products.delete` | `DELETE /products/:id` | manager |
 | `money.view` | revenue on the admin dashboard | manager |
@@ -53,6 +53,7 @@ The API is the source of truth for prices, stock, delivery fee, order totals, or
 | `inStock` | boolean | |
 | `allowPreorder` | boolean | default `false`. When on, the product can still be ordered when stock is short; the line becomes a pre-order |
 | `preorderDays` | number | 1 to 90, default 15: the promised wait for a pre-order |
+| `published` | boolean | default `true`. `false` is a draft: only the `/products/manage` routes return it, and orders refuse it. Products saved before this field existed count as `true` |
 | `createdAt`, `updatedAt` | string | |
 
 `costPrice` (what the shop paid for one piece) is stored on the product but left out of every product response; it is read with `GET /products/:id/cost`. When an order is placed the cost is copied onto each order line, so later cost changes don't rewrite old profit. That copy is never sent in any order response.
@@ -65,7 +66,7 @@ Returns `200 { success: true, status: "ok", db: "connected", uptimeSeconds }`, o
 ## Products
 
 ### `GET /products` (public)
-Query (all optional; bad values fall back to defaults instead of erroring):
+Published products only. Query (all optional; bad values fall back to defaults instead of erroring):
 
 | Param | Default | Notes |
 |---|---|---|
@@ -78,18 +79,24 @@ Query (all optional; bad values fall back to defaults instead of erroring):
 
 Response: `{ success, data: Product[], pagination: { page, limit, total, pages, hasMore } }`.
 
+### `GET /products/manage` (products.view)
+The same query and response as `GET /products`, with drafts included.
+
+### `GET /products/manage/:slug` (products.view)
+Returns `{ success, data: Product }` for any product, draft or published, or `404` `Product not found`.
+
 ### `GET /products/:id/cost` (money.view)
 Returns `{ data: { costPrice } }`, where `costPrice` is `null` when none is set, or `404`.
 
 ### `GET /products/:slug` (public)
-Returns `{ success, data: Product }`, or `404` `Product not found`.
+Returns `{ success, data: Product }`, or `404` `Product not found` when there is no such product or it is a draft.
 
 ### `POST /products` (products.edit)
-Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15) optional.
+Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15), `published` (default `true`) optional. The `slug` `manage` is reserved and returns `400`.
 `price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Optional `costPrice` (0 or more) needs `money.view`, otherwise `403`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (products.edit)
-Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder` and `preorderDays` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder`, `preorderDays` and `published` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (products.delete)
 Returns `{ success, message }` or `404`. The product's photos and share image are deleted from Cloudinary too (only photos in this shop's `coovi/products` folder). A photo still used by another product (as a photo or share image) or shown on an order line is kept, and a Cloudinary failure never stops the product being deleted.
@@ -108,7 +115,7 @@ Body:
   "items": [{ "productId": "string", "quantity": 1 }] }
 ```
 `district` (one of the names in `GET /orders/delivery-fee` `districts`) and `deliveryArea` are optional so an older client still works. Only district `Dhaka` can be `inside_dhaka` (Dhaka city); Dhaka suburbs send `outside_dhaka`. Any other district is stored as `outside_dhaka` whatever is sent, and asking for `inside_dhaka` with it returns `400`. With neither field the order is `inside_dhaka`.
-`phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock`) and has enough stock, adds the delivery fee for the order's `deliveryArea`, and stores the order as `Pending`. When stock is short and the product has `allowPreorder`, the whole line is stored with `preorder: true` and the product's `preorderDays` instead of being refused.
+`phone` must be 11 digits starting `01`. 1 to 50 items, quantity 1 to 99. The server loads each product, uses its current `price` (never `compareAtPrice`), checks that it is available (`inStock` and not a draft) and has enough stock, adds the delivery fee for the order's `deliveryArea`, and stores the order as `Pending`. When stock is short and the product has `allowPreorder`, the whole line is stored with `preorder: true` and the product's `preorderDays` instead of being refused.
 Records the first `statusHistory` entry (`to: Pending`, `by: customer`). Returns `201 { data: Order }` without the admin-only fields. Errors: `400` for invalid data, a removed product, a product switched off for sale, or insufficient stock (message names the product). `429` when this `phone` already has 3 `Pending` website orders (checkout can't prove the phone belongs to the person ordering, so each order waits for a confirmation call), or after 5 orders an hour from one address.
 
 ### `POST /orders/manual` (orders.edit)
@@ -277,6 +284,8 @@ Response `data`:
 Without `money.view`, `money` and every `value` field are left out.
 
 ## Changelog
+
+- 2026-11-01: products gain `published` (default `true`); drafts are left out of the public product routes and refused by orders; new `GET /products/manage` and `GET /products/manage/:slug`; the `slug` `manage` is reserved (coovi-api#41, coovi-admin#33).
 
 - 2026-10-31: no API change. The storefront's Track Order form now opens `/track-order/<number>` instead of `/order-confirmation/<number>`, with the phone in a cookie for that page only; the confirmation page is for checkout (coovi-storefront#32).
 

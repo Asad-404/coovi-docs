@@ -47,7 +47,7 @@ Open pull requests:
 | Pull requests | What | Waiting on |
 |---|---|---|
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
-| coovi-admin, branch `feature/phone-first-admin` | Admin redesigned for running the shop from a phone | Your merge, then your check on a real phone (the Vercel preview cannot sign in; revert the merge if something is wrong) |
+| coovi-api#41, then coovi-admin#33 | Save a product as a draft and publish it later; merge the API first | Your review |
 
 | App | Port | Stack |
 |---|---|---|
@@ -98,6 +98,7 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 
 ## Not verified yet
 
+- Publish block on the product form (coovi-api#41, coovi-admin#33): tests, lint and build pass, but Claude did not open it in a browser. Save a draft, check it is missing from the shop, publish it, then unpublish it.
 - Phone admin (`feature/phone-first-admin`): checked at 375 px in headless Chrome with a fake API, not on a real phone or against the real API. On a phone, check Call and WhatsApp, photo upload, the keyboard with the Save bar, and Print slip.
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
