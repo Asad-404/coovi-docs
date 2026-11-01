@@ -92,11 +92,11 @@ Returns `{ data: { costPrice } }`, where `costPrice` is `null` when none is set,
 Returns `{ success, data: Product }`, or `404` `Product not found` when there is no such product or it is a draft.
 
 ### `POST /products` (products.edit)
-Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15), `published` (default `true`) optional. The `slug` `manage` is reserved and returns `400`.
+Body (strict, unknown fields rejected): `slug`, `name`, `price`, `images`, `stock` required; `nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `category` (default `Saree`), `inStock` (default `true`), `compareAtPrice`, `allowPreorder` (default `false`), `preorderDays` (whole number 1 to 90, default 15), `published` (default `true`) optional. The `slug` `manage` is reserved and returns `400`. A published product (including when `published` is left out) needs at least 3 different `images` and a `shareImage`, otherwise `400`. A draft needs 1 image. The API cannot see an image's shape; the admin checks that photos are upright 3:4 and the share image is 1200 x 630.
 `price` is a whole number of at least 1. `compareAtPrice` must be greater than `price`. Optional `costPrice` (0 or more) needs `money.view`, otherwise `403`. Returns `201 { data: Product }`; duplicate slug returns `400`.
 
 ### `PUT /products/:id` (products.edit)
-Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder`, `preorderDays` and `published` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
+Same body as create (full replacement of the listed fields). Optional fields left out (`nameBn`, `description`, `descriptionBn`, `shareImage`, `size`, `compareAtPrice`) are cleared. Send `compareAtPrice: null`, or leave it out, to remove a discount. The settings `category`, `inStock`, `allowPreorder`, `preorderDays` and `published` keep their saved value when left out (the create defaults are not applied on update). `costPrice` also keeps its saved value when left out; `null` removes it; sending it at all needs `money.view` (`403` otherwise). Publishing a draft, or changing the `images` or `shareImage` of a published product, needs the same 3 images and share image as create (`400` otherwise). A published product from before this rule can change other fields, or be unpublished, without them. Returns `{ data: Product }`, `400` for invalid data or a duplicate slug, or `404`.
 
 ### `DELETE /products/:id` (products.delete)
 Returns `{ success, message }` or `404`. The product's photos and share image are deleted from Cloudinary too (only photos in this shop's `coovi/products` folder). A photo still used by another product (as a photo or share image) or shown on an order line is kept, and a Cloudinary failure never stops the product being deleted.
@@ -284,6 +284,8 @@ Response `data`:
 Without `money.view`, `money` and every `value` field are left out.
 
 ## Changelog
+
+- 2026-11-01: publishing a product needs at least 3 different `images` and a `shareImage` (coovi-api#42, coovi-admin#34).
 
 - 2026-11-01: products gain `published` (default `true`); drafts are left out of the public product routes and refused by orders; new `GET /products/manage` and `GET /products/manage/:slug`; the `slug` `manage` is reserved (coovi-api#41, coovi-admin#33).
 

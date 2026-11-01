@@ -47,7 +47,7 @@ Open pull requests:
 | Pull requests | What | Waiting on |
 |---|---|---|
 | coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
-| coovi-api#41, then coovi-admin#33 | Save a product as a draft and publish it later; merge the API first | Your review |
+| coovi-api#42, then coovi-admin#34 | Publishing needs 3 photos (upright 3:4) and a share image (1200 x 630); confirmation before editing a published product; merge the API first | Your review |
 
 | App | Port | Stack |
 |---|---|---|
@@ -98,7 +98,8 @@ The dev Atlas DB holds 26 products and 6 marked on sale. Most still have free Pe
 
 ## Not verified yet
 
-- Publish block on the product form (coovi-api#41, coovi-admin#33): tests, lint and build pass, but Claude did not open it in a browser. Save a draft, check it is missing from the shop, publish it, then unpublish it.
+- Publish block on the product form (coovi-api#41, coovi-admin#33, merged 2026-11-01): tests, lint and build pass, but Claude did not open it in a browser. Save a draft, check it is missing from the shop, publish it, then unpublish it.
+- Photo rules and edit confirmation (coovi-api#42, coovi-admin#34): tests, lint and build pass, but Claude did not open them in a browser. Try uploading a square photo, publishing with 2 photos and with no share image, then open a published product for editing and press both Go back and Edit product. Published products from before the rules keep working until their pictures are changed or they are republished.
 - Phone admin (`feature/phone-first-admin`): checked at 375 px in headless Chrome with a fake API, not on a real phone or against the real API. On a phone, check Call and WhatsApp, photo upload, the keyboard with the Save bar, and Print slip.
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
