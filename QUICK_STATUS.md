@@ -1,6 +1,6 @@
 # COOVI Quick Status
 
-Last updated: 2026-11-01. All dev servers are **stopped**; nothing is running.
+Last updated: 2026-11-02. All dev servers are **stopped**; nothing is running.
 Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`. Missing business features: `docs/FEATURE_GAPS.md`.
 
 ## Waiting on you
@@ -44,13 +44,18 @@ Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live o
 - **Storefront, merged 2026-10-31:** each page has its own loading skeleton (coovi-storefront#33). The home hero has a solid blue-grey background, three slanted photo panels and a light sweep (coovi-storefront#34).
 - **Storefront, merged 2026-10-31 and 2026-11-01:** the collection moved from `/shop` to `/saree` (coovi-storefront#36), the cart drawer no longer shakes (#37), pages that set their own Open Graph keep the share card (#38), the product image zooms on hover (#39), and above-the-fold photos load eagerly (#40).
 - **Checkout, merged 2026-11-01 (coovi-storefront#41):** Inside Dhaka and Outside Dhaka radios with both fees sit in the order summary, with nothing preselected, and stay in step with the district. The address box is split into house and road, flat or floor, and area or thana, joined into the API's one `address` string. The place order button moved under the summary. No API change.
+- **Load speed, merged 2026-11-01 and 2026-11-02:** the Meta Pixel is gone (coovi-storefront#43), the main product photo loads at high priority (#42), the ৳ sign is stored in the app and Bengali fonts are no longer preloaded (#44). Home and product pages are served from cache (#45, #47), the API is woken before Vercel builds (#46) and shop settings refresh every 5 minutes (#48). Results are in `docs/PLAN_PAGE_CACHING.md`: first byte is about 150 to 215 ms on home and 133 to 150 ms on product pages.
+- **Owner decisions 2026-11-02:** no browser call to the API for live price and stock on product pages (coovi-storefront#49, closed). Keep the page skeletons on home and product pages, so missing products keep returning 200 with `noindex`. The skeleton plan is dropped. No uptime monitor for now. Keep the announcement on and to one line. coovi-api#15 (customer SMS) is closed; its branch `claude/project-thread-qolyc8` is kept.
 - **Products, merged 2026-11-01:** products can be saved as drafts and published later (coovi-api#41, coovi-admin#33). Publishing needs at least 3 photos and a share image, and opening a published product for editing asks for confirmation first (coovi-api#42, coovi-admin#34).
 
 Open pull requests:
 
 | Pull requests | What | Waiting on |
 |---|---|---|
-| coovi-api#15 (draft) | SMS the customer their order number | Your choice of SMS company |
+| coovi-storefront#50 | Header paints at once, removing the blank-screen risk | Your review and merge |
+| coovi-storefront#51 | Skip hover photos on phones, sharper desktop hero | Your review and merge |
+| coovi-storefront#52 | Checkout uses current prices and says what changed | Your review and merge |
+| coovi-storefront#53 | Privacy policy mentions the order phone cookie | Your review and merge |
 
 | App | Port | Stack |
 |---|---|---|
@@ -100,6 +105,10 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 - Still to do for SEO: submit the sitemap in Google Search Console once the domain is live; real product photos and descriptions help rankings most.
 
 ## Not verified yet
+
+- Open storefront pull requests #50 to #53: lint, typecheck, tests and build pass, but Claude did not open them in a browser. Each description lists what to check. #52 can only be tested on the live site, because the API only allows that address.
+- The wake-up script's line in the Vercel build log (coovi-storefront#46): only the owner can see it.
+- How home and product pages behave while the API is asleep, including the first visit to a product added since the last deploy.
 
 - Meta Pixel removal (coovi-storefront#43): tests, lint, typecheck and build pass, but Claude did not open it in a browser. After it deploys, check that the product page, add to cart, checkout and order confirmation still work, and that no request goes to Facebook.
 - Checkout radios and address fields (coovi-storefront#41, merged 2026-11-01): tests, lint, typecheck and build pass, but Claude did not open it in a browser. At phone and desktop width, check the radios in the order summary, pick Inside Dhaka and then another district, and place one test order.
