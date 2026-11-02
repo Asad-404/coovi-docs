@@ -2,6 +2,10 @@
 
 Written 2026-11-01. This is a plan only; no app code has changed. Measured on the live site, https://coovi-storefront.vercel.app, with a test browser. Anything marked "estimate" is worked out rather than measured.
 
+## Owner decisions, 2026-11-02
+
+Built in coovi-storefront#51: issues A and B, including the sharper hero photos at about 70 to 170 KB more on desktop. Issue C stays as it is, and prefetching should be measured again now that page caching is live.
+
 ## Summary
 
 | Issue | What shoppers notice | Priority | Recommendation |
