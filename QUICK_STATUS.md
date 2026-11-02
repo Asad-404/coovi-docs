@@ -16,7 +16,7 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 7. **Your go-live items** (database, backups, paid plans, domain, registration) are listed in `docs/GO_LIVE_CHECKLIST.md`, marked **You**. Owner decision 2026-10-15: leave them for now; Claude works on items with no blockers.
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
 8. Done 2026-10-31: the owner deleted all existing orders, so none were carried over to the new 6-character numbers such as `K7M3QX`. **Still to check:** any courier payments recorded for those orders, which keep their own copy of the old numbers.
-9. **Delete `NEXT_PUBLIC_META_PIXEL_ID` from Vercel** once coovi-storefront#43 is merged; the code no longer reads it. Owner decision 2026-11-01: the shop will not show ads, so the Meta Pixel is removed and the Conversions API will not be built. The docs said the pixel was waiting for an ID, but a load test of the live site on 2026-11-01 found it on in production, costing about 740 ms of the 995 ms Total Blocking Time on a throttled phone. Optional: delete the pixel in Meta Events Manager too.
+9. Done 2026-11-02: `NEXT_PUBLIC_META_PIXEL_ID` removed from Vercel. Owner decision 2026-11-01: no ads, so no ad tracking.
 
 ## Docs repository
 
@@ -45,6 +45,7 @@ Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live o
 - **Storefront, merged 2026-10-31 and 2026-11-01:** the collection moved from `/shop` to `/saree` (coovi-storefront#36), the cart drawer no longer shakes (#37), pages that set their own Open Graph keep the share card (#38), the product image zooms on hover (#39), and above-the-fold photos load eagerly (#40).
 - **Checkout, merged 2026-11-01 (coovi-storefront#41):** Inside Dhaka and Outside Dhaka radios with both fees sit in the order summary, with nothing preselected, and stay in step with the district. The address box is split into house and road, flat or floor, and area or thana, joined into the API's one `address` string. The place order button moved under the summary. No API change.
 - **Load speed, merged 2026-11-01 and 2026-11-02:** the Meta Pixel is gone (coovi-storefront#43), the main product photo loads at high priority (#42), the ৳ sign is stored in the app and Bengali fonts are no longer preloaded (#44). Home and product pages are served from cache (#45, #47), the API is woken before Vercel builds (#46) and shop settings refresh every 5 minutes (#48). Results are in `docs/PLAN_PAGE_CACHING.md`: first byte is about 150 to 215 ms on home and 133 to 150 ms on product pages.
+- **Storefront, merged 2026-11-02:** the header paints at once and the chat link goes to `/contact` until settings load (coovi-storefront#50), phones skip hover photos and the desktop hero is sharper (#51), checkout moves to current prices and says what changed (#52), and the privacy policy mentions the order phone cookie (#53).
 - **Owner decisions 2026-11-02:** no browser call to the API for live price and stock on product pages (coovi-storefront#49, closed). Keep the page skeletons on home and product pages, so missing products keep returning 200 with `noindex`. The skeleton plan is dropped. No uptime monitor for now. Keep the announcement on and to one line. coovi-api#15 (customer SMS) is closed; its branch `claude/project-thread-qolyc8` is kept.
 - **Products, merged 2026-11-01:** products can be saved as drafts and published later (coovi-api#41, coovi-admin#33). Publishing needs at least 3 photos and a share image, and opening a published product for editing asks for confirmation first (coovi-api#42, coovi-admin#34).
 
@@ -52,10 +53,7 @@ Open pull requests:
 
 | Pull requests | What | Waiting on |
 |---|---|---|
-| coovi-storefront#50 | Header paints at once, removing the blank-screen risk | Your review and merge |
-| coovi-storefront#51 | Skip hover photos on phones, sharper desktop hero | Your review and merge |
-| coovi-storefront#52 | Checkout uses current prices and says what changed | Your review and merge |
-| coovi-storefront#53 | Privacy policy mentions the order phone cookie | Your review and merge |
+| coovi-storefront#54 | Show Bangla saree names in SolaimanLipi | Your review and merge |
 
 | App | Port | Stack |
 |---|---|---|
@@ -106,7 +104,7 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 
 ## Not verified yet
 
-- Open storefront pull requests #50 to #53: lint, typecheck, tests and build pass, but Claude did not open them in a browser. Each description lists what to check. #52 can only be tested on the live site, because the API only allows that address.
+- coovi-storefront#50 to #53: lint, typecheck, tests and build pass, and live checks on 2026-11-02 show layout shift 0, the sharper hero and the privacy text. Still to try by hand: the checkout price note (#52, change a price while an item is in the cart), and hover photos (#51, needs a live product with 2 or more photos). The white-page fix (#50) has not been seen with the API asleep.
 - The wake-up script's line in the Vercel build log (coovi-storefront#46): only the owner can see it.
 - How home and product pages behave while the API is asleep, including the first visit to a product added since the last deploy.
 
