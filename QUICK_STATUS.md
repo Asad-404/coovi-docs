@@ -5,7 +5,7 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 
 ## Waiting on you
 
-1. Done 2026-10-27: old branches deleted, locally and on GitHub, in all four repos. Each one was the head of a merged pull request, or already contained in `master`. The only branch kept was `claude/project-thread-qolyc8` (open coovi-api#15). Checked 2026-11-02: branches from later pull requests are on GitHub again. Storefront pull requests are squash-merged, so their branches show commits not on `master` even when merged: compare by pull request state, not commit count. All of them are merged except `feat/live-product-price-stock` (coovi-storefront#49, closed on purpose). In coovi-api, only `claude/project-thread-qolyc8` has no merged pull request.
+1. Done 2026-11-02: unused branches deleted, locally and on GitHub, in all four repos. Each one was the head of a merged pull request or already contained in `master`, except `feat/live-product-price-stock` (coovi-storefront#49, closed on purpose), which can be restored from that pull request. The only branch kept besides `master` is `claude/project-thread-qolyc8` (coovi-api#15, closed). Storefront pull requests are squash-merged, so a merged branch still shows commits not on `master`: before deleting, compare by pull request state, not commit count.
 2. Done 2026-10-27: demo data deleted. Orders `ORD-20260920-814` ("Smoke Test") and `ORD-20260919-558` ("Test Customer") are gone; the `test-saree` product was already gone.
 3. **Policy pages: add your real terms** (delivery time; no returns after delivery, decided 2026-10-13). See "Policy pages" below.
 4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
