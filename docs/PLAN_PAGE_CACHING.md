@@ -1,10 +1,30 @@
 # Plan: serve home and product pages from cache
 
-Written 2026-11-01 for storefront commit `0e4211a` (Next.js 16.3.8). This is a plan only; no app code has changed.
+Written 2026-11-01 for storefront commit `0e4211a` (Next.js 16.3.8). Corrected 2026-11-02 with what the live site showed after PRs 1 to 3 merged. The rest of this file is the plan as written, so it describes the old behaviour as "today".
+
+## Result on the live site (checked 2026-11-02)
+
+| Pull request | State |
+|---|---|
+| PR 1, cache the home page | Merged, coovi-storefront#45 |
+| PR 2, wake the API before building | Merged, coovi-storefront#46. The script's line in the Vercel build log is not confirmed yet; only the owner can see it |
+| PR 3, cache product pages | Merged, coovi-storefront#47 |
+| PR 4, refresh settings every 5 minutes | Open, coovi-storefront#48, waiting on the owner's decision |
+
+**What worked:** both pages are served from the cache (`X-Vercel-Cache: HIT`, no `no-store`), and the old `/?search=` link redirects as planned.
+
+**What this plan got wrong:**
+
+1. **Cached pages do not arrive complete.** The saved home and product pages still start with their `loading.tsx` skeleton, with the real content hidden behind it (`<!--$?-->` and `hidden id="S:0"` in the HTML: 97 skeleton blocks on `/`, 52 on a product page, 0 on `/about`, which has no `loading.tsx`). So caching did not solve the photo wait.
+2. **Missing products still return 200, not 404.** `/products/no-such-saree` returns 200 with "Product not found" and `noindex`. Next.js returns 200 for streamed pages (`loading.md`, "Status Codes"), which is the likely cause because these pages are streamed through `loading.tsx`. Search engines should not index it, and shoppers see the right message.
+
+**Likely fix for both, not tested:** remove `loading.tsx` from the home and product routes. The cost is no skeleton when tapping through to those pages. This belongs in `docs/PLAN_SKELETON_PHOTO_WAIT.md`, which has not been delivered yet.
+
+**Owner decision 2026-11-02:** a browser call to the API for live price and stock, with a skeleton, was built in coovi-storefront#49 and closed without merging. Product pages keep showing the saved price and stock.
 
 ## In short
 
-Today, every visit to the home page or a product page makes Vercel's server in Washington build the page again. The plan is to keep a ready-made copy and hand it out straight away, then refresh that copy in the background. Next.js calls this ISR (Incremental Static Regeneration): a saved page that renews itself after a set time.
+Before this work, every visit to the home page or a product page made Vercel's server in Washington build the page again. The plan was to keep a ready-made copy and hand it out straight away, then refresh that copy in the background. Next.js calls this ISR (Incremental Static Regeneration): a saved page that renews itself after a set time.
 
 - **Home and product pages** get cached. `/saree` and `/sale` stay as they are.
 - **Size:** 3 small pull requests, plus 1 optional. No API or admin changes.
@@ -90,7 +110,7 @@ This differs from the plain empty list first suggested. An empty list also enabl
 
 ```bash
 curl -sI "$URL/products/<real-slug>" | grep -iE "x-vercel-cache|cache-control|x-vercel-id"   # run twice: HIT
-curl -sI "$URL/products/no-such-saree" | grep -i "^HTTP"                                     # expect 404, was 200
+curl -sI "$URL/products/no-such-saree" | grep -i "^HTTP"                                     # still 200 on the live site, see "Result" above
 ```
 
 ### PR 4 (optional): refresh shop settings less often
@@ -101,7 +121,7 @@ curl -sI "$URL/products/no-such-saree" | grep -i "^HTTP"                        
 
 ### After merging
 
-Update the "Known notes" soft-404 line in `QUICK_STATUS.md` in a separate coovi-docs PR, once the 404 check above has passed. Repeat the home page measurement from `docs/PLAN_SMALL_LOAD_FIXES.md`.
+Keep the "Known notes" soft-404 line in `QUICK_STATUS.md`, because the 404 check above did not pass. Repeat the home page measurement from `docs/PLAN_SMALL_LOAD_FIXES.md`.
 
 ## `/saree` and `/sale` stay dynamic
 
@@ -147,7 +167,7 @@ The table at the top covers this. Note that `SERVER_TIMEOUT_MS` and Next's build
 
 ### 3. Unknown, deleted and draft products
 
-- **The soft 404 should go away.** Cached pages are built whole before sending, not streamed, so Next can send a true 404 (`not-found.md`, `loading.md`). The preview check confirms it. Docs or source.
+- **The soft 404 stays.** This plan expected a true 404 because cached pages would not be streamed, but the live site still streams them through `loading.tsx` and returns 200 with `noindex`. Tested on the live site 2026-11-02.
 - **"Not found" results get saved too.** Vercel treats 404 as a valid result (Vercel docs). If someone opens a product's address before it is published, the first visitor after publishing can still see "not found". That visit triggers the refresh, and the next visitor sees the product. To check a new product yourself, open it, wait a few seconds and reload.
 - **Junk addresses** each cost one server run and one API call, as they do today, plus a small saved page.
 - **How long an unpublished or deleted product stays visible:**
@@ -216,20 +236,34 @@ These two findings came from `docs/PLAN_SMALL_LOAD_FIXES.md`. I checked both, an
 
 Going over a limit usually means waiting up to 30 days, so check instead of guessing: look at the Vercel Usage page one week after shipping. If anything is above about 70% of its limit, first raise `CACHE_SECONDS` to 300. That is one line, but edits then take up to about 10 minutes on a busy shop. Vercel's Hobby plan is also non-commercial only (`docs/GO_LIVE_CHECKLIST.md` item 8), and moving off it changes these limits.
 
-## Expected gains (estimates)
+## Measured gains (2026-11-02)
 
-Based on the prerendered `/about` page measured at 160 to 195 ms, assuming cached pages perform the same:
+Time to first byte, measured with curl once the page was warm. The plan's estimate of about 160 to 195 ms held:
 
-| Page | Time to first byte today | After |
+| Page | Before | After |
 |---|---|---|
-| Home | 400 to 566 ms | About 160 to 195 ms |
-| Product | 378 to 456 ms | About 160 to 195 ms |
+| Home | 400 to 566 ms | About 150 to 215 ms |
+| Product | 378 to 456 ms | About 133 to 150 ms |
+| `/saree`, not cached, for comparison | 395 to 669 ms | About 365 to 440 ms |
 
-- The slow 1.39 s sample, possibly a cold start, should mostly disappear, because no server has to start for a cached page. That was one sample, so this is weak evidence.
-- Quiet-shop visits may not get the best number. Vercel's copy near Mumbai is kept for "minutes to hours", and after that the request goes to the store in Washington.
-- A tapped product link should open almost instantly once prefetched.
-- A sleeping API no longer slows these pages, except in the first-visit case in trap 3.
-- This does not speed up photos, `/saree`, `/sale`, or checkout's first call to a sleeping API.
+- The first requests after a deploy or a quiet spell still took about 400 to 950 ms.
+
+Phone on slow 4G (median of 3 runs, one product page, cache empty):
+
+| Page | | First paint | LCP (main content shown) | Blocking | Downloaded |
+|---|---|---|---|---|---|
+| Home | Before | 2.57 s | 2.65 s | 995 ms | 783 KB |
+| Home | After | 1.82 s | 2.52 s (2.36 to 3.07) | 201 ms | 472 KB |
+| Product | Before | 2.08 s | 3.84 s | 717 ms | 760 KB |
+| Product | After | 1.88 s | 2.46 s (2.45 to 2.61) | 567 ms | 449 KB |
+
+- **The phone numbers are not from caching alone.** The Meta Pixel removal (#43), the main photo priority (#42) and the font change (#44) went live in the same period, and they account for the drop in downloaded data and most of the drop in blocking time.
+- Layout shift stayed at 0 in all 6 runs.
+- The home page's LCP barely moved because its photos still wait behind the skeleton. See "Result" above.
+
+Not measured: tapped product links opening once prefetched, whether the slow 1.39 s sample has gone, and how these pages behave when the API is asleep.
+
+This work does not speed up photos, `/saree`, `/sale`, or checkout's first call to a sleeping API.
 
 ## Rollback
 
@@ -241,11 +275,13 @@ No data or API changes are involved, so rollback is simple and each PR can be un
 
 ## Relationship to other plans
 
-- `docs/PLAN_SKELETON_PHOTO_WAIT.md`: mostly solved by this work, because cached pages arrive complete. Ship this first, measure, then decide what is left of that plan.
+- `docs/PLAN_SKELETON_PHOTO_WAIT.md`: **not** solved by this work, because cached pages still start with the skeleton. That plan should test removing `loading.tsx` from the home and product routes.
 - `docs/PLAN_HEADER_BLANK_SCREEN.md`: changes the same header, and the two plans can merge in either order. They protect different pages: that plan covers `/saree`, `/sale` and the order pages, and this one covers home and products. Its fix does not touch `lib/`, so PR 4 here should not clash with it. Whichever ships second should re-check the route table, because cookies or headers in the header would make every page dynamic.
 - `docs/PLAN_SMALL_LOAD_FIXES.md`: its prefetching numbers should be measured again after this ships.
 
 ## Decisions for the owner
+
+Status 2026-11-02: decisions 1, 2, 3 and 6 are settled by merging PRs 1 to 3. Decision 4 is still open as coovi-storefront#48. Decisions 7, 8 and 9 are still the owner's to do. Decision 5 was never answered, so its recommendation (not now) stands. Before starting decision 9, check that keeping the API awake fits Render's free plan terms and monthly hours.
 
 1. **Is a possibly older price or stock count acceptable on these pages?** About 2 minutes on a busy shop, and for the first visitor after a quiet spell, with checkout still correct. Recommendation: yes. Today's data cache already has the quiet-spell behaviour.
 2. **Build known products in advance, or only on first visit?** Recommendation: in advance (PR 3 as written).
