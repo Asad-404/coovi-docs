@@ -109,7 +109,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 
 | Feature | State | Priority | Plan | Notes |
 |---|---|---|---|---|
-| Facebook Pixel and Conversions API | Partial | P2 | New | Browser pixel built 2026-10-20 (PageView, ViewContent, AddToCart, InitiateCheckout, Purchase), off until the Pixel ID is set in Vercel; Conversions API (server copy) waits until ads start (owner decision 2026-10-20). Most saree sales in Bangladesh come from Facebook and Instagram ads; without the pixel you cannot measure or optimise ads. Needs your Meta Business account. Moved from P1 to P2: owner will not run ads during development. |
+| Facebook Pixel and Conversions API | Not wanted | | New | Owner decision 2026-11-01: no ads. The browser pixel is removed (coovi-storefront#43) and the Conversions API will not be built. |
 | Facebook and Instagram product catalogue feed | Missing | P2 | New | Lets you tag products in posts and run catalogue ads. |
 | Visitor analytics (Google Analytics or Vercel Analytics) | Missing | P2 | New | |
 | Google Search Console and Merchant Center | Partial | P2 | | Product structured data exists; sitemap not yet submitted (needs the real domain). |
@@ -125,7 +125,7 @@ Answered by the owner on 2026-10-13:
 3. New-order alerts: WhatsApp or email. Email first, WhatsApp later.
 4. Stock: not decided between one-of-a-kind and restocking. For now: sell from stock when in stock, otherwise take a pre-order that ships in at least 15 days (see "Pre-orders").
 5. Returns after delivery: not accepted for now (changed 2026-10-13). Customers check the saree in front of the rider and refuse the parcel if something is wrong; a refused parcel's stock goes back.
-6. Facebook ads: maybe later, not during development. Facebook Pixel moves to P2.
+6. Facebook ads: none (changed 2026-11-01, "I have no intention to show ads in my web app"). The Facebook Pixel is removed.
 
 No return window or refund method is needed while returns after delivery are off.
 

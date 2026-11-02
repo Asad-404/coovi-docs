@@ -16,6 +16,7 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 7. **Your go-live items** (database, backups, paid plans, domain, registration) are listed in `docs/GO_LIVE_CHECKLIST.md`, marked **You**. Owner decision 2026-10-15: leave them for now; Claude works on items with no blockers.
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
 8. Done 2026-10-31: the owner deleted all existing orders, so none were carried over to the new 6-character numbers such as `K7M3QX`. **Still to check:** any courier payments recorded for those orders, which keep their own copy of the old numbers.
+9. **Delete `NEXT_PUBLIC_META_PIXEL_ID` from Vercel** once coovi-storefront#43 is merged; the code no longer reads it. Owner decision 2026-11-01: the shop will not show ads, so the Meta Pixel is removed and the Conversions API will not be built. The docs said the pixel was waiting for an ID, but a load test of the live site on 2026-11-01 found it on in production, costing about 740 ms of the 995 ms Total Blocking Time on a throttled phone. Optional: delete the pixel in Meta Events Manager too.
 
 ## Docs repository
 
@@ -28,7 +29,7 @@ Removed 2026-10-13 because they were out of date, and still in the Git history: 
 - API: https://coovi-api.onrender.com (Render free plan, deployed 2026-10-07; `/health` returns ok). Build command `pnpm install --frozen-lockfile --prod=false && pnpm build`, start `node dist/index.js`.
 - It uses the **dev** Atlas database for now (owner's choice, to test first). Switching `MONGODB_URI` to `coovi-prod` later gives an empty database: the admin is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD` on first boot and products must be re-added through the admin. Changing `ADMIN_PASSWORD` on Render later does not change an existing admin's password.
 - Storefront: https://coovi-storefront.vercel.app and admin: https://coovi-admin.vercel.app (Vercel Hobby, deployed 2026-10-07 from `master`; every merge to `master` redeploys). Checked 2026-10-07: products load, canonical and sitemap use the real address, admin deep links work, API allows both origins.
-- `CORS_ORIGINS` on Render matches the two Vercel addresses. Vercel env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_META_PIXEL_ID` (storefront, pixel off while empty), `VITE_API_URL` (admin); a change needs a redeploy.
+- `CORS_ORIGINS` on Render matches the two Vercel addresses. Vercel env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL` (storefront), `VITE_API_URL` (admin); a change needs a redeploy.
 - The site is public and search engines may index it while it still has the placeholder WhatsApp number and dev data.
 
 ## Where we are
@@ -100,6 +101,7 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 
 ## Not verified yet
 
+- Meta Pixel removal (coovi-storefront#43): tests, lint, typecheck and build pass, but Claude did not open it in a browser. After it deploys, check that the product page, add to cart, checkout and order confirmation still work, and that no request goes to Facebook.
 - Checkout radios and address fields (coovi-storefront#41, merged 2026-11-01): tests, lint, typecheck and build pass, but Claude did not open it in a browser. At phone and desktop width, check the radios in the order summary, pick Inside Dhaka and then another district, and place one test order.
 - Publish block on the product form (coovi-api#41, coovi-admin#33, merged 2026-11-01): tests, lint and build pass, but Claude did not open it in a browser. Save a draft, check it is missing from the shop, publish it, then unpublish it.
 - Photo rules and edit confirmation (coovi-api#42, coovi-admin#34, merged 2026-11-01): tests, lint and build pass, but Claude did not open them in a browser. Try uploading a square photo, publishing with 2 photos and with no share image, then open a published product for editing and press both Go back and Edit product. Published products from before the rules keep working until their pictures are changed or they are republished.
@@ -120,7 +122,7 @@ Approved by the owner on 2026-10-15 (plan in the project files, `reviews/PLAN_UN
 
 Not now (owner decision 2026-10-15): categories, saree details (fabric, colour, work) and shop filters (plan features 7 and 9a).
 
-Waiting on the owner: Steadfast booking and the customer tracking link (Steadfast account), customer SMS (SMS company), error tracking (free Sentry account), visitor analytics, the Meta Pixel ID (pixel built, checklist item 38; the server copy waits until ads start), and the **You** items in `docs/GO_LIVE_CHECKLIST.md`.
+Waiting on the owner: Steadfast booking and the customer tracking link (Steadfast account), customer SMS (SMS company), error tracking (free Sentry account), visitor analytics, and the **You** items in `docs/GO_LIVE_CHECKLIST.md`.
 
 Later (P3): discount codes, bulk actions, stock history, homepage banner from the admin, product variants, reviews and back-in-stock, wishlist, customer accounts, online payment, WhatsApp alerts, Bengali copy, icon on the mobile header.
 
