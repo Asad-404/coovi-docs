@@ -18,7 +18,7 @@ Written 2026-11-01 for storefront commit `0e4211a` (Next.js 16.3.8). Corrected 2
 1. **Cached pages do not arrive complete.** The saved home and product pages still start with their `loading.tsx` skeleton, with the real content hidden behind it (`<!--$?-->` and `hidden id="S:0"` in the HTML: 97 skeleton blocks on `/`, 52 on a product page, 0 on `/about`, which has no `loading.tsx`). So caching did not solve the photo wait.
 2. **Missing products still return 200, not 404.** `/products/no-such-saree` returns 200 with "Product not found" and `noindex`. Next.js returns 200 for streamed pages (`loading.md`, "Status Codes"), which is the likely cause because these pages are streamed through `loading.tsx`. Search engines should not index it, and shoppers see the right message.
 
-**Likely fix for both, not tested:** remove `loading.tsx` from the home and product routes. The cost is no skeleton when tapping through to those pages. This belongs in `docs/PLAN_SKELETON_PHOTO_WAIT.md`, which has not been delivered yet.
+**Owner decision 2026-11-02: keep the skeletons.** Removing `loading.tsx` from the home and product routes would probably fix both, but it was not tested, and it would leave no skeleton when tapping through to those pages. So both points stay as they are, and `docs/PLAN_SKELETON_PHOTO_WAIT.md` was dropped without being written.
 
 **Owner decision 2026-11-02:** a browser call to the API for live price and stock, with a skeleton, was built in coovi-storefront#49 and closed without merging. Product pages keep showing the saved price and stock.
 
@@ -186,7 +186,7 @@ The table at the top covers this. Note that `SERVER_TIMEOUT_MS` and Next's build
 
 The API stays in charge. It recalculates price and stock when the order is placed, and refuses an order it cannot fill.
 
-**One existing gap, outside this plan.** The cart keeps the price from when the item was added, and the button says "Place order for ৳X" using that price. If the price has since gone up, the API charges the new price without warning, and the shopper sees it only on the confirmation page. Caching makes this slightly more likely but did not create it. I suggest a small follow-up: compare the totals and warn the shopper.
+**One existing gap, outside this plan, being fixed in coovi-storefront#52.** The cart keeps the price from when the item was added, and the button says "Place order for ৳X" using that price. If the price has since gone up, the API charges the new price without warning, and the shopper sees it only on the confirmation page. Caching makes this slightly more likely but did not create it. I suggest a small follow-up: compare the totals and warn the shopper.
 
 ### 5. Anything else that would keep pages dynamic
 
@@ -275,7 +275,7 @@ No data or API changes are involved, so rollback is simple and each PR can be un
 
 ## Relationship to other plans
 
-- `docs/PLAN_SKELETON_PHOTO_WAIT.md`: **not** solved by this work, because cached pages still start with the skeleton. That plan should test removing `loading.tsx` from the home and product routes.
+- `docs/PLAN_SKELETON_PHOTO_WAIT.md`: dropped, see "Result" above. The photo wait was **not** solved by this work, because cached pages still start with the skeleton.
 - `docs/PLAN_HEADER_BLANK_SCREEN.md`: changes the same header, and the two plans can merge in either order. They protect different pages: that plan covers `/saree`, `/sale` and the order pages, and this one covers home and products. Its fix does not touch `lib/`, so PR 4 here should not clash with it. Whichever ships second should re-check the route table, because cookies or headers in the header would make every page dynamic.
 - `docs/PLAN_SMALL_LOAD_FIXES.md`: its prefetching numbers should be measured again after this ships.
 
