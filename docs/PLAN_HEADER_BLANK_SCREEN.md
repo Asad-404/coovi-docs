@@ -2,6 +2,17 @@
 
 Written 2026-11-01. A plan only; no app code has changed. Storefront `master` at `0e4211a`, Next.js 16.3.8.
 
+## Owner decisions, 2026-11-02
+
+Built in coovi-storefront#50.
+
+1. Option (a) alone, keeping the 60-second timeout: **yes**.
+2. Stand-in chat link goes to `/contact`: **yes**.
+3. Layout shift: **keep the announcement on and to one line**, so it stays at 0. Turning it off, or text that wraps on a phone, brings the small shift described below.
+4. Free uptime monitor: **not yet**. Render's free plan page does not mention pinging. It gives 750 hours a month per workspace, and running non-stop uses at most 744, so any other free service in that workspace would run the hours out and suspend all of them. It also says not to use free instances for production.
+
+**Correction:** point 1 under "How this fits" is wrong for the home and product pages. They stream through `loading.tsx`, so their saved copies do have a pending boundary, and the stand-ins can appear briefly there. `/about` and `/contact` come out finished, as described.
+
 ## In plain English
 
 Every page starts with the header, and the header needs two things from the API: the WhatsApp number and the announcement text. The server will not send **any** of the page until the header is ready. The grey loading skeletons do not help, because they sit below the header.
