@@ -15,11 +15,11 @@ This root folder is the private `coovi-docs` repo. It holds only these documents
 ## Documentation
 
 - **QUICK_STATUS.md** — where the project is right now + how to resume. **Start here.**
-- **API_ENDPOINTS.md** — the API contract between all three codebases (updated 2026-10-04)
-- **tools/screenshot.mjs** — captures any page at phone or desktop width for design comparison
+- **API_ENDPOINTS.md** — the API contract between all three codebases- **tools/screenshot.mjs** — captures any page at phone or desktop width for design comparison
 - **`docs/ADMIN_FEATURE_PLAN.md`** — implementation plan for the admin features in the backlog
 - **`docs/FEATURE_GAPS.md`** — which business features exist and which are missing
 - **`docs/GO_LIVE_CHECKLIST.md`** — what must change before taking real orders
+- **`docs/PLAN_PAGE_CACHING.md`**, **`docs/PLAN_HEADER_BLANK_SCREEN.md`**, **`docs/PLAN_SMALL_LOAD_FIXES.md`** — storefront load work, built and merged; kept for the measurements and owner decisions
 - **`CLAUDE.md`** — workspace-wide rules; each app has its own project-specific `CLAUDE.md`
 ## Resume in one line
 

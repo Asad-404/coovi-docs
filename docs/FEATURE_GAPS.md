@@ -13,11 +13,11 @@ Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi
 
 | | Have | Built, waiting on you or in review | Partial | Missing |
 |---|---|---|---|---|
-| Customer side (storefront) | 8 | 1 | 4 | 12 |
+| Customer side (storefront) | 8 | 0 | 4 | 13 |
 | Running orders (admin) | 18 | 1 | 1 | 5 |
-| Selling and marketing | 0 | 0 | 2 | 4 |
+| Selling and marketing | 0 | 0 | 1 | 4 |
 
-P1 status on 2026-10-15: new-order email alerts, pre-orders, district and delivery fee by area, internal notes and history, refused-parcel returns with restock, courier cash collection, shop settings and manual order entry are built and merged. Steadfast booking and the customer order SMS are built and wait on your Steadfast account and your choice of SMS company. The next build order is in `QUICK_STATUS.md` (Backlog).
+P1 status on 2026-10-15: new-order email alerts, pre-orders, district and delivery fee by area, internal notes and history, refused-parcel returns with restock, courier cash collection, shop settings and manual order entry are built and merged. Steadfast booking is built and waits on your Steadfast account. The customer order SMS is not built: coovi-api#15 was closed unmerged on 2026-11-02, and it waits on your choice of SMS company. The next build order is in `QUICK_STATUS.md` (Backlog).
 
 ## Admin feature plan coverage
 
@@ -57,7 +57,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | SEO, share cards, sitemap | Have | | | |
 | **District and area at checkout** | Have | P1 | 5 | District dropdown plus Inside Dhaka or Outside Dhaka radios that stay in step; Dhaka suburbs count as outside. Pull requests coovi-api#14, coovi-admin#16, coovi-storefront#15 (2026-10-13), coovi-storefront#41 (2026-11-01). |
 | **Delivery fee by area** | Have | P1 | 5 | Inside Dhaka city and outside Dhaka (suburbs included); the live fees on 2026-11-01 were 70 and 130, the same as the placeholders, so the owner should confirm them. Same pull requests. |
-| **Order confirmation SMS to the customer** | Built, waiting on SMS company | P1 | New | Customers expect an SMS with the order number; it also cuts "did my order go through?" calls. Needs an SMS provider account (for example SSL Wireless, BulkSMSBD). |
+| **Order confirmation SMS to the customer** | Missing | P1 | New | Customers expect an SMS with the order number; it also cuts "did my order go through?" calls. Needs an SMS provider account (for example SSL Wireless, BulkSMSBD). A first build, coovi-api#15, was closed unmerged on 2026-11-02; its branch `claude/project-thread-qolyc8` is kept. |
 | WhatsApp and Messenger chat button | Partial | P1 | | WhatsApp link exists with the placeholder number; no Messenger. |
 | Contact form | Partial | P2 | | Contact page has a `mailto:support@coovi.com` link; that address only works once you own the domain. |
 | Product details: fabric, colour, length, blouse piece, work | Partial | P2 | 9a | Only `size` exists. Saree buyers filter and decide on fabric and colour. |
@@ -84,8 +84,8 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Orders: list, filter by status and date, search, status changes | Have | | | Status only moves forward; stock taken on confirm. |
 | Edit customer contact details on an order | Have | | | |
 | CSV export and printable slip | Have | | | |
-| **New-order alerts** to you | Have | P1 | 1 | Nothing tells you an order arrived. Owner chose WhatsApp or email: email first (free, simple); WhatsApp needs a WhatsApp Business API account and approved message templates, so it comes later. |
-| **Manual order entry** | Have | P1 | 14 | Many orders arrive by Facebook message or phone; today they cannot go into the system, so stock and reports are wrong. |
+| **New-order alerts** to you | Have | P1 | 1 | Email through Resend, with bursts grouped into one email per 5 minutes (coovi-api#10, #23). WhatsApp needs a WhatsApp Business API account and approved message templates, so it comes later. |
+| **Manual order entry** | Have | P1 | 14 | Orders taken by Facebook, WhatsApp or phone go in from the admin, so stock and reports stay right. |
 | **Internal notes and status history** | Have | P1 | 3 | Private notes, status history and detail-edit history with who and when: coovi-api#16, coovi-admin#10. |
 | **Courier booking and tracking number** (Steadfast, owner's choice) | Built, waiting on Steadfast account | P1 | 4 | coovi-api#18, coovi-admin#12: "Book with Steadfast" on a Processing order saves the tracking code and courier status. Needs a Steadfast merchant account and its API keys on Render. Not built: automatic status updates (Steadfast webhook), so the admin presses "check" and still marks Shipped and Delivered. |
 | **Cancel and return with restock** | Have | P1 | 2 | `Returned` status for parcels refused at the door, with reason and restock (coovi-api#17, coovi-admin#11). No returns after delivery (owner decision). Customer-requested cancellation is still P3. |
@@ -110,7 +110,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Feature | State | Priority | Plan | Notes |
 |---|---|---|---|---|
 | Facebook Pixel and Conversions API | Not wanted | | New | Owner decision 2026-11-01: no ads. The browser pixel is removed (coovi-storefront#43) and the Conversions API will not be built. |
-| Facebook and Instagram product catalogue feed | Missing | P2 | New | Lets you tag products in posts and run catalogue ads. |
+| Facebook and Instagram product catalogue feed | Missing | P2 | New | Lets you tag products in posts. Not for ads (owner decision 2026-11-01). |
 | Visitor analytics (Google Analytics or Vercel Analytics) | Missing | P2 | New | |
 | Google Search Console and Merchant Center | Partial | P2 | | Product structured data exists; sitemap not yet submitted (needs the real domain). |
 | Abandoned-cart follow-up | Missing | P3 | New | Needs the phone before checkout ends, so it is a later step. |

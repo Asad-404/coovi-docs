@@ -1,6 +1,6 @@
 # Admin Feature Plan
 
-Written 2026-10-12. Implementation plan for the 18 admin features needed to run Coovi as a real online shop. Nothing in this file is built yet. Current state and backlog live in `QUICK_STATUS.md`; the API contract lives in `API_ENDPOINTS.md`.
+Written 2026-10-12. Implementation plan for the 18 admin features needed to run Coovi as a real online shop. Kept as the plan as written: many of these features are now built, some differently from what is described here, so check `docs/FEATURE_GAPS.md` for which ones and the code for how. Current state and backlog live in `QUICK_STATUS.md`; the API contract lives in `API_ENDPOINTS.md`.
 
 ## How to read this file
 
