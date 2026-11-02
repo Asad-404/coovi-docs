@@ -248,7 +248,7 @@ Time to first byte, measured with curl once the page was warm. The plan's estima
 
 - The first requests after a deploy or a quiet spell still took about 400 to 950 ms.
 
-Phone on slow 4G (median of 3 runs, one product page, cache empty):
+Phone on slow 4G, browser cache empty, one product page (median of 3 runs, except the product "Before" row, which had 2 runs and shows the higher one):
 
 | Page | | First paint | LCP (main content shown) | Blocking | Downloaded |
 |---|---|---|---|---|---|
@@ -259,7 +259,7 @@ Phone on slow 4G (median of 3 runs, one product page, cache empty):
 
 - **The phone numbers are not from caching alone.** The Meta Pixel removal (#43), the main photo priority (#42) and the font change (#44) went live in the same period, and they account for the drop in downloaded data and most of the drop in blocking time.
 - Layout shift stayed at 0 in all 6 runs.
-- The home page's LCP barely moved because its photos still wait behind the skeleton. See "Result" above.
+- The home page's LCP barely moved, most likely because its photos still wait behind the skeleton (removed at about 2.1 to 3.0 s in these runs). See "Result" above.
 
 Not measured: tapped product links opening once prefetched, whether the slow 1.39 s sample has gone, and how these pages behave when the API is asleep.
 
