@@ -14,13 +14,13 @@ Source of truth is the code in `coovi-api/src/routes/`; update this file in the 
 
 | Permission | Allows | Role presets |
 |---|---|---|
-| `orders.view` | `GET /orders` | manager, staff, viewer |
-| `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `PATCH /orders/:id/call-confirmed`, `POST /orders/:id/notes`, `POST /orders/:id/courier/steadfast`, `POST /orders/:id/courier/steadfast/refresh` | manager, staff |
+| `orders.view` | `GET /orders`, `GET /customers`, `GET /customers/:phone`, `GET /stats` | manager, staff, viewer |
+| `orders.edit` | `POST /orders/manual`, `PATCH /orders/:id`, `PATCH /orders/:id/status`, `PATCH /orders/:id/call-confirmed`, `POST /orders/:id/notes`, `POST /orders/:id/courier/steadfast`, `POST /orders/:id/courier/steadfast/refresh`, `PUT /customers/:phone/block` | manager, staff |
 | `orders.export` | the admin CSV export button (the data comes from `GET /orders`) | manager |
 | `products.view` | `GET /products/manage`, `GET /products/manage/:slug` (the admin product list and form) | manager, staff, viewer |
 | `products.edit` | `POST /products`, `PUT /products/:id`, `POST /uploads/signature` | manager, staff |
 | `products.delete` | `DELETE /products/:id` | manager |
-| `money.view` | revenue on the admin dashboard | manager |
+| `money.view` | `GET /products/:id/cost`, sending `costPrice` to `POST /products` and `PUT /products/:id`, `money` and `value` in `GET /stats`, `spent` on customers | manager |
 | `payments.view` | `GET /courier-payments*` | manager |
 | `payments.edit` | `POST /courier-payments`, `DELETE /courier-payments/:id` | manager |
 | `settings.view` | the admin Settings page | none |
@@ -218,7 +218,7 @@ Shop-wide settings the owner edits on the admin Settings page. One document, cre
 | `lowStockThreshold` | integer 0 to 1000; products with fewer pieces count as low stock | `6` | no |
 
 ### `GET /settings` (public)
-Returns `{ data: { whatsappNumber, supportPhone, announcementText, announcementActive } }`. Never includes admin-only fields. The storefront caches it for 60 seconds and falls back to the defaults when the API is unreachable.
+Returns `{ data: { whatsappNumber, supportPhone, announcementText, announcementActive } }`. Never includes admin-only fields. The storefront caches it for 5 minutes and falls back to the defaults when the API is unreachable.
 
 ### `GET /settings/admin` (admin)
 Open to every signed-in team member (nothing in it is secret, and the admin needs the low-stock limit). Returns `{ data: <every field above>, updatedAt }`.
@@ -285,9 +285,13 @@ Without `money.view`, `money` and every `value` field are left out.
 
 ## Changelog
 
+- 2026-11-02: no API change. The storefront caches `GET /settings` for 5 minutes instead of 60 seconds (coovi-storefront#48).
+
 - 2026-11-01: publishing a product needs at least 3 different `images` and a `shareImage` (coovi-api#42, coovi-admin#34).
 
 - 2026-11-01: products gain `published` (default `true`); drafts are left out of the public product routes and refused by orders; new `GET /products/manage` and `GET /products/manage/:slug`; the `slug` `manage` is reserved (coovi-api#41, coovi-admin#33).
+
+- 2026-10-31: `orderNumber` is 6 random characters such as `K7M3QX` instead of `ORD-YYYYMMDD-XXXXXX`, with no migration or lookup for old numbers (coovi-api#39, coovi-storefront#31, coovi-admin#31).
 
 - 2026-10-31: no API change. The storefront's Track Order form now opens `/track-order/<number>` instead of `/order-confirmation/<number>`, with the phone in a cookie for that page only; the confirmation page is for checkout (coovi-storefront#32).
 

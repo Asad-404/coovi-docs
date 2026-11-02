@@ -35,6 +35,7 @@ Run Git commands, commits, and reviews inside the repository they concern. The w
 - `docs/ADMIN_FEATURE_PLAN.md` — implementation plan for the admin features in the backlog.
 - `docs/FEATURE_GAPS.md` — business features a real shop needs, marked have, partial or missing, with priorities.
 - `docs/GO_LIVE_CHECKLIST.md` — prioritized "needed before going live" list; add items when you find them.
+- `docs/PLAN_PAGE_CACHING.md`, `docs/PLAN_HEADER_BLANK_SCREEN.md`, `docs/PLAN_SMALL_LOAD_FIXES.md` — storefront load work, built and merged; kept for the measurements and owner decisions.
 
 ## Manual resume commands
 

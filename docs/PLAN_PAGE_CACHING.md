@@ -9,7 +9,7 @@ Written 2026-11-01 for storefront commit `0e4211a` (Next.js 16.3.8). Corrected 2
 | PR 1, cache the home page | Merged, coovi-storefront#45 |
 | PR 2, wake the API before building | Merged, coovi-storefront#46. The script's line in the Vercel build log is not confirmed yet; only the owner can see it |
 | PR 3, cache product pages | Merged, coovi-storefront#47 |
-| PR 4, refresh settings every 5 minutes | Open, coovi-storefront#48, waiting on the owner's decision |
+| PR 4, refresh settings every 5 minutes | Merged, coovi-storefront#48 |
 
 **What worked:** both pages are served from the cache (`X-Vercel-Cache: HIT`, no `no-store`), and the old `/?search=` link redirects as planned.
 
@@ -281,7 +281,7 @@ No data or API changes are involved, so rollback is simple and each PR can be un
 
 ## Decisions for the owner
 
-Status 2026-11-02: decisions 1, 2, 3 and 6 are settled by merging PRs 1 to 3. Decision 4 is still open as coovi-storefront#48. Decisions 7, 8 and 9 are still the owner's to do. Decision 5 was never answered, so its recommendation (not now) stands. Before starting decision 9, check that keeping the API awake fits Render's free plan terms and monthly hours.
+Status 2026-11-02: decisions 1, 2, 3, 4 and 6 are settled by merging PRs 1 to 4. Decisions 7, 8 and 9 are still the owner's to do. Decision 5 was never answered, so its recommendation (not now) stands. Before starting decision 9, check that keeping the API awake fits Render's free plan terms and monthly hours.
 
 1. **Is a possibly older price or stock count acceptable on these pages?** About 2 minutes on a busy shop, and for the first visitor after a quiet spell, with checkout still correct. Recommendation: yes. Today's data cache already has the quiet-spell behaviour.
 2. **Build known products in advance, or only on first visit?** Recommendation: in advance (PR 3 as written).

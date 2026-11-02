@@ -5,7 +5,7 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
 
 ## Waiting on you
 
-1. Done 2026-10-27: old branches deleted, locally and on GitHub, in all four repos. Each one was the head of a merged pull request, or already contained in `master`. The only branch kept was `claude/project-thread-qolyc8` (open coovi-api#15). Checked 2026-11-01: branches from later pull requests are on GitHub again. `claude/og-image-all-pages` and `layout-fix` in coovi-storefront each show one commit not on `master`, so check them before deleting.
+1. Done 2026-10-27: old branches deleted, locally and on GitHub, in all four repos. Each one was the head of a merged pull request, or already contained in `master`. The only branch kept was `claude/project-thread-qolyc8` (open coovi-api#15). Checked 2026-11-02: branches from later pull requests are on GitHub again. Storefront pull requests are squash-merged, so their branches show commits not on `master` even when merged: compare by pull request state, not commit count. All of them are merged except `feat/live-product-price-stock` (coovi-storefront#49, closed on purpose). In coovi-api, only `claude/project-thread-qolyc8` has no merged pull request.
 2. Done 2026-10-27: demo data deleted. Orders `ORD-20260920-814` ("Smoke Test") and `ORD-20260919-558` ("Test Customer") are gone; the `test-saree` product was already gone.
 3. **Policy pages: add your real terms** (delivery time; no returns after delivery, decided 2026-10-13). See "Policy pages" below.
 4. **Production setup, three steps still open.** Secrets go straight into the Render dashboard, never into the chat.
@@ -13,8 +13,8 @@ Start here when resuming. API contract: `API_ENDPOINTS.md`. Go-live checklist: `
    - Production secrets, saved in a password manager: a new `JWT_SECRET` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`), a production admin email and a strong admin password.
    - Real WhatsApp number: set it yourself on the admin Settings page (no code change). The delivery fees were recorded as set on Render on 2026-10-13. **To confirm:** on 2026-11-01 the live API returned 70 and 130, the same as the placeholders, so check these are your real fees.
 5. WhatsApp placeholder `8801700000000` stays for now (owner decision 2026-10-07).
-7. **Your go-live items** (database, backups, paid plans, domain, registration) are listed in `docs/GO_LIVE_CHECKLIST.md`, marked **You**. Owner decision 2026-10-15: leave them for now; Claude works on items with no blockers.
 6. Optional: connect the private `Asad-404/coovi-docs` repository to the Claude Project as knowledge, and use its sync button after doc changes.
+7. **Your go-live items** (database, backups, paid plans, domain, registration) are listed in `docs/GO_LIVE_CHECKLIST.md`, marked **You**. Owner decision 2026-10-15: leave them for now; Claude works on items with no blockers.
 8. Done 2026-10-31: the owner deleted all existing orders, so none were carried over to the new 6-character numbers such as `K7M3QX`. **Still to check:** any courier payments recorded for those orders, which keep their own copy of the old numbers.
 9. Done 2026-11-02: `NEXT_PUBLIC_META_PIXEL_ID` removed from Vercel. Owner decision 2026-11-01: no ads, so no ad tracking.
 
@@ -46,14 +46,11 @@ Checked 2026-10-15 against GitHub. Built and merged since 2026-10-12, all live o
 - **Checkout, merged 2026-11-01 (coovi-storefront#41):** Inside Dhaka and Outside Dhaka radios with both fees sit in the order summary, with nothing preselected, and stay in step with the district. The address box is split into house and road, flat or floor, and area or thana, joined into the API's one `address` string. The place order button moved under the summary. No API change.
 - **Load speed, merged 2026-11-01 and 2026-11-02:** the Meta Pixel is gone (coovi-storefront#43), the main product photo loads at high priority (#42), the ৳ sign is stored in the app and Bengali fonts are no longer preloaded (#44). Home and product pages are served from cache (#45, #47), the API is woken before Vercel builds (#46) and shop settings refresh every 5 minutes (#48). Results are in `docs/PLAN_PAGE_CACHING.md`: first byte is about 150 to 215 ms on home and 133 to 150 ms on product pages.
 - **Storefront, merged 2026-11-02:** the header paints at once and the chat link goes to `/contact` until settings load (coovi-storefront#50), phones skip hover photos and the desktop hero is sharper (#51), checkout moves to current prices and says what changed (#52), and the privacy policy mentions the order phone cookie (#53).
+- **Bangla font, merged 2026-11-02 (coovi-storefront#54):** Bangla text uses SolaimanLipi, except the saree names on the all sarees and new arrivals cards, which match Diponty: Inter for English and the device's own font for Bangla, so they look different from device to device. SolaimanLipi has one weight, so bold Bangla is faked by the browser.
 - **Owner decisions 2026-11-02:** no browser call to the API for live price and stock on product pages (coovi-storefront#49, closed). Keep the page skeletons on home and product pages, so missing products keep returning 200 with `noindex`. The skeleton plan is dropped. No uptime monitor for now. Keep the announcement on and to one line. coovi-api#15 (customer SMS) is closed; its branch `claude/project-thread-qolyc8` is kept.
 - **Products, merged 2026-11-01:** products can be saved as drafts and published later (coovi-api#41, coovi-admin#33). Publishing needs at least 3 photos and a share image, and opening a published product for editing asks for confirmation first (coovi-api#42, coovi-admin#34).
 
-Open pull requests:
-
-| Pull requests | What | Waiting on |
-|---|---|---|
-| coovi-storefront#54 | Show Bangla saree names in SolaimanLipi | Your review and merge |
+Open pull requests: none in any repo on 2026-11-02.
 
 | App | Port | Stack |
 |---|---|---|
@@ -70,7 +67,7 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 - **Storefront redesign** (desktop 1440 and phone 375 checked with screenshots): top bar, header with MENU on mobile, announcement strip, hero, promo, New Arrivals, All Products, Why Coovi, footer.
 - **Pages:** `/saree` (sort, Load More), `/sale`, product detail (gallery, quantity + Add to cart, COD note, accordions, tabs, related products), empty-cart state, cart drawer. Header and mobile menu have search.
 - **Sale pricing:** API `compareAtPrice` + `GET /products?onSale=true`; admin "Original price" field and On-sale chip; storefront Sale badges and struck-through prices. Orders still charge `price`.
-- **Brand:** navy `#0C2953` + cyan `#06B5E4` palette from the logo (tokens in `coovi-storefront/app/globals.css`), text-recreated wordmark (`components/Logo.tsx`), `C.` favicon (`app/icon.svg`), Nunito + Inter fonts, light-only theme. Admin MUI theme uses the same colours.
+- **Brand:** navy `#0C2953` + cyan `#06B5E4` palette from the logo (tokens in `coovi-storefront/app/globals.css`), text-recreated wordmark (`components/Logo.tsx`), `C.` favicon (`app/icon.svg`), light-only theme. Fonts now: Hind Siliguri for text, Tiro Bangla for headings, SolaimanLipi for Bangla, Nunito for the wordmark only, Inter for saree card names only, and a small font of its own for the ৳ sign (`app/layout.tsx`). Admin MUI theme uses the same colours.
 - **Fixes:** page was 2x too wide on phones (closed cart drawer); cart drawer was clipped to the header (now portaled to `<body>`).
 - **Docs:** `API_ENDPOINTS.md` recreated from the real routes; this file rewritten.
 - **Photo upload (2026-10-12):** admin "Upload photos" button sends images straight to Cloudinary using a signature from `POST /api/uploads/signature`; the storefront allows `res.cloudinary.com`. Product `images` is still a list of URLs, so pasted links keep working.
@@ -78,6 +75,8 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 ## Data lives in the database, not the seed
 
 **To confirm:** on 2026-11-01 the live shop listed 6 products, 2 on sale, all with Cloudinary photos and none with a Pexels photo. Earlier notes recorded 26 products, 6 on sale and mostly Pexels photos. The public list leaves out drafts, so check the admin Products page to see whether the other 20 are drafts or were deleted. None of the 6 has 3 photos or a share image yet: they stay live, but changing their pictures or republishing them needs both. `coovi-api/src/seed.ts` is stale and does **not** contain them, so re-running seed would not reproduce this data. Do not run seed unless you intend to replace it. The demo orders `ORD-20260920-814` and `ORD-20260919-558` were deleted 2026-10-27.
+
+The six saree names were shortened to one English word in the database for coovi-storefront#54 (for example "Rangila Crimson Handloom" to "Rangila"); slugs did not change. Shop search only looks at the English name, so searching "silk" or "maroon" no longer finds them. Nothing in the admin limits name length.
 
 ## Admin and API extras (done 2026-10-04, tests pass)
 
@@ -94,7 +93,7 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 
 - Per-page titles (`Page | Coovi`), canonical links, Open Graph + Twitter tags, default 1200x630 share card (`app/opengraph-image.tsx`), `apple-icon`, web manifest, theme colour.
 - Structured data: Product + Offer + BreadcrumbList on product pages, Organization + WebSite (search action) on the home page (`components/JsonLd.tsx`).
-- `robots.txt` (blocks cart/checkout/track-order/order pages, names search and AI crawlers), `sitemap.xml` (home, shop, sale, about, contact, up to 50 products), `/llms.txt` (live product list for AI assistants).
+- `robots.txt` (blocks cart/checkout/track-order/order pages, names search and AI crawlers), `sitemap.xml` (home, saree, sale, about, contact, policy pages, every published product), `/llms.txt` (live product list for AI assistants).
 - Search results and `?page=` pages are `noindex,follow`; cart, checkout and track-order are `noindex`.
 - **Set `NEXT_PUBLIC_SITE_URL` (real https address, no trailing slash) in Vercel before the first production build**, or canonical, sitemap and share links point to localhost. Template: `coovi-storefront/.env.example`.
 - In `next dev` the share image address shows `localhost`; production uses `NEXT_PUBLIC_SITE_URL` (checked in Next source).
@@ -104,6 +103,7 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 
 ## Not verified yet
 
+- coovi-storefront#54: lint, typecheck and tests pass, and desktop width was checked on the dev server. `pnpm build` was not re-run after the card name commit, and the card names were not viewed at phone width: their fit is calculated. Check them on a real phone.
 - coovi-storefront#50 to #53: lint, typecheck, tests and build pass, and live checks on 2026-11-02 show layout shift 0, the sharper hero and the privacy text. Still to try by hand: the checkout price note (#52, change a price while an item is in the cart), and hover photos (#51, needs a live product with 2 or more photos). The white-page fix (#50) has not been seen with the API asleep.
 - The wake-up script's line in the Vercel build log (coovi-storefront#46): only the owner can see it.
 - How home and product pages behave while the API is asleep, including the first visit to a product added since the last deploy.
@@ -114,7 +114,6 @@ Owner decision 2026-11-01: there is no budget for a PC or laptop for now, so the
 - Photo rules and edit confirmation (coovi-api#42, coovi-admin#34, merged 2026-11-01): tests, lint and build pass, but Claude did not open them in a browser. Try uploading a square photo, publishing with 2 photos and with no share image, then open a published product for editing and press both Go back and Edit product. Published products from before the rules keep working until their pictures are changed or they are republished.
 - Phone admin (coovi-admin#32, merged 2026-11-01): checked at 375 px in headless Chrome with a fake API, not on a real phone or against the real API. On a phone, check Call and WhatsApp, photo upload, the keyboard with the Save bar, and Print slip.
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
-- `pnpm build` for the storefront (API and admin tests, admin build and storefront tests all passed on 2026-10-07).
 - Real-phone check; the order-confirmation page was restyled by colour only.
 
 ## Backlog (not built yet), in build order
@@ -129,7 +128,7 @@ Approved by the owner on 2026-10-15 (plan in the project files, `reviews/PLAN_UN
 
 Not now (owner decision 2026-10-15): categories, saree details (fabric, colour, work) and shop filters (plan features 7 and 9a).
 
-Waiting on the owner: Steadfast booking and the customer tracking link (Steadfast account), customer SMS (SMS company), error tracking (free Sentry account), visitor analytics, and the **You** items in `docs/GO_LIVE_CHECKLIST.md`.
+Waiting on the owner: Steadfast booking and the customer tracking link (Steadfast account), customer SMS (SMS company; coovi-api#15 was closed unmerged, so it still has to be built), error tracking (free Sentry account), visitor analytics, and the **You** items in `docs/GO_LIVE_CHECKLIST.md`.
 
 Later (P3): discount codes, bulk actions, stock history, homepage banner from the admin, product variants, reviews and back-in-stock, wishlist, customer accounts, online payment, WhatsApp alerts, Bengali copy, icon on the mobile header.
 
@@ -150,7 +149,7 @@ Later (P3): discount codes, bulk actions, stock history, homepage banner from th
 
 ## Known notes
 
-- `/saree` Load More asks for `12 x page` products at once, so it caps at the API limit of 50.
+- `/saree` Load More asks for `12 x page` products at once. The storefront fetches them in pages of up to the API limit of 50, so larger counts still arrive in full.
 - Next 16 returns HTTP 200 for `notFound()` once streaming starts (soft 404); product pages carry `noindex` as mitigation.
 - Claude may run tests, lint and builds and push feature branches (owner said yes 2026-10-07); dev servers, seed scripts and `master` stay with the owner (see root `CLAUDE.md`).
 
