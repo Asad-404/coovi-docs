@@ -117,6 +117,21 @@ The six saree names were shortened to one English word in the database for coovi
 - Track Order page (coovi-storefront#32): lint, typecheck, tests and build pass, but Claude did not open it in a browser. Submit the form once with the right phone and once with a wrong one.
 - Order confirmation status (coovi-storefront#56, merged 2026-11-11): lint, typecheck and tests pass, but Claude did not open it in a browser. Place an order, then set it to Shipped and to Cancelled in the admin and reload the confirmation page each time.
 - Real-phone check; the order-confirmation page was restyled by colour only.
+- Product listing retry (coovi-storefront#58, merged TODO): lint, typecheck, tests and build pass. Click the "Try again" button when the API is unreachable.
+- Admin clipboard/print errors (coovi-admin#38, merged TODO): lint, tests and build pass. Copy a tracking code on a device without clipboard permission; block pop-ups and click Print slip.
+
+## Browser acceptance check — 2026-11-11
+
+The items below require a real browser or device and cannot be verified from code. All are marked **not yet browser-verified** as of 2026-11-11. The owner will check them manually.
+
+- Checkout area switching (Inside / Outside Dhaka radios), current-price change warning, and placing one test order
+- Track Order: success path with the right phone, wrong-phone error path
+- Order confirmation: behavior after an order status changes in the admin, and after an API outage
+- Draft / publish / unpublish a product; photo count and share-image rules when publishing
+- Manual order entry: district selection and delivery fee preview in the admin
+- Steadfast courier booking and tracking status check
+- Phone admin actions: Call, WhatsApp, photo upload, Save bar with the keyboard open, Print slip
+- API asleep / wakeup behavior, and the first visit to a newly published product
 
 ## Backlog (not built yet), in build order
 
