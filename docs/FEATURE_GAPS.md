@@ -52,7 +52,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 | Browse, search, sort, sale page | Have | | | `/saree`, `/sale`, search in header. |
 | Product page with photo gallery | Have | | | Gallery, quantity, related products. |
 | Cart and guest cash-on-delivery checkout | Have | | | Prices and totals from the API. |
-| Order confirmation and order tracking by number and phone | Have | | | Tracking has its own page with status steps (coovi-storefront#32). Status only, no courier tracking. |
+| Order confirmation and order tracking by number and phone | Have | | | Tracking has its own page with status steps (coovi-storefront#32); the confirmation page shows the current status too (#56). Status only, no courier tracking. |
 | Policy pages (returns, delivery, privacy, terms) | Have | | | Wording still needs your real terms (see `QUICK_STATUS.md`). |
 | SEO, share cards, sitemap | Have | | | |
 | **District and area at checkout** | Have | P1 | 5 | District dropdown plus Inside Dhaka or Outside Dhaka radios that stay in step; Dhaka suburbs count as outside. Pull requests coovi-api#14, coovi-admin#16, coovi-storefront#15 (2026-10-13), coovi-storefront#41 (2026-11-01). |
