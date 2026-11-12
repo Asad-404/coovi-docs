@@ -31,7 +31,7 @@ The workspace root is the private `Asad-404/coovi-docs` repository on `master`. 
 
 - Customer flow: browse `/saree` and `/sale`, product pages, cart, guest COD checkout, order confirmation and order tracking.
 - Admin flow: products and drafts, photo upload, orders, manual orders, notes and history, statuses including refused-parcel `Returned`, delivery fees, courier payments, customers and block list, reports, roles, shop settings and CSV/print tools.
-- Courier booking with Steadfast is built, but needs the owner's account and keys. Automatic courier status updates and the customer-facing tracking link are not built.
+- Courier booking with Steadfast is built, but needs the owner's account and keys. Admins can manually refresh the Steadfast delivery status and open the tracking link in the admin panel. Automatic status updates and a customer-facing courier tracking card on the storefront are intentionally deferred until the owner confirms a courier is live.
 - Product pages keep cached price and stock; checkout rechecks current values. Home and product first-byte measurements after caching were about 150–215 ms and 133–150 ms respectively.
 - No ads or ad pixels are planned. The seed data is stale; do not run the seed script against the live database.
 
