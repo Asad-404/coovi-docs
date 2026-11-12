@@ -1,6 +1,6 @@
 # COOVI Quick Status
 
-Last updated: 2026-11-12. All dev servers are stopped; nothing is running.
+Last updated: 2026-11-12. Server state is not tracked here; the owner starts and stops the apps manually.
 
 Start here when resuming. The API contract is [API_ENDPOINTS.md](API_ENDPOINTS.md), business gaps are in [docs/FEATURE_GAPS.md](docs/FEATURE_GAPS.md), and launch actions are in [docs/GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md).
 
@@ -48,8 +48,13 @@ These checks require a real browser, phone or live service and are not verified 
 - Phone-admin Call, WhatsApp, photo upload, keyboard Save bar and Print slip actions.
 - API sleep/wakeup behavior and the first visit to a newly published product.
 - Retry the storefront listing's “Try again” action when the API is unreachable.
+- Test copying a tracking code without clipboard permission and Print slip with pop-ups blocked.
+- Check saree-card names on a real phone and hover photos on desktop with a multi-photo product.
+- Check the API wake-up script's output in Vercel's build log (owner access required).
 
 ## Remaining build backlog
+
+Owner decisions still apply: leave owner-only launch setup for now; no uptime monitor; keep page skeletons and cached product price/stock (no live browser fetch); keep the announcement on and to one line. Categories, saree attributes and shop filters are deferred. Do not start the customer-facing courier tracking card until the owner says a courier is live. Customer SMS remains unbuilt; its closed branch `claude/project-thread-qolyc8` is retained in the API repository.
 
 Waiting on an owner account or decision: customer SMS, error tracking, Steadfast automatic updates, visitor analytics and the launch actions in [docs/GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md).
 

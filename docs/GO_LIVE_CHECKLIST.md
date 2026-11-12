@@ -17,6 +17,7 @@ This is the short list of actions that still matter before Coovi accepts real or
 | Replace the WhatsApp placeholder, confirm delivery fees, add real photos and review policy terms. | Customers must see accurate contact details, fees, delivery promises and product information. | You |
 | Set `NEXT_PUBLIC_WHATSAPP_NUMBER` in Vercel as well as the admin setting. | Cached or API-failure fallbacks must not show the placeholder number. | You |
 | Check business registration, e-commerce and required customer-facing terms with an accountant or lawyer. | The checklist is not legal advice and Bangladesh requirements may change. | You |
+| Check API visitor IPs from two networks and verify `TRUST_PROXY` matches Render's proxy chain. | Shared visitor IPs would make login and checkout rate limits apply to the whole shop. | Both |
 | Complete the browser acceptance checks in `QUICK_STATUS.md`. | Tests do not cover real phones, live credentials, browser permissions or API sleep/wakeup. | Both |
 | Create and test the Steadfast account if it will deliver launch orders. | Courier booking needs merchant credentials and a real parcel test. | Both |
 
@@ -24,6 +25,7 @@ This is the short list of actions that still matter before Coovi accepts real or
 
 - Add error tracking to the API, storefront and admin after choosing a provider.
 - Turn on GitHub Dependabot security alerts and security updates in all three app repositories.
+- Review stock-at-confirmation behavior, including two customers ordering the last piece and whether pre-orders are enabled; decide whether reservation is needed.
 - Decide whether the one-week order-phone cookie should be shorter on shared devices.
 - Decide whether to add two-step admin login and whether customer SMS is worth the provider cost.
 - Review Atlas access, CSV export retention and the process for deleting old customer data.
