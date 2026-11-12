@@ -14,7 +14,6 @@ COOVI is a learning-first full-stack saree shop for the Bangladesh market, with 
 
 - **[QUICK_STATUS.md](QUICK_STATUS.md)** — current state, owner actions, browser checks and resume commands.
 - **[API_ENDPOINTS.md](API_ENDPOINTS.md)** — API contract shared by all three apps.
-- **[docs/FEATURE_GAPS.md](docs/FEATURE_GAPS.md)** — built, partial and missing business features.
 - **[docs/GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md)** — actions needed before taking real orders.
 - **[CLAUDE.md](CLAUDE.md)** — workspace rules.
 - **[tools/screenshot.mjs](tools/screenshot.mjs)** — captures any page at phone or desktop width for design comparison.

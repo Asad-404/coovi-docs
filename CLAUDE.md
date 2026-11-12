@@ -32,7 +32,6 @@ Run Git commands, commits, and reviews inside the repository they concern. The w
 - `QUICK_STATUS.md` — current status, backlog of unbuilt features, placeholders to replace, and manual resume commands; start here.
 - `API_ENDPOINTS.md` — canonical contract shared by all three apps.
 - `tools/screenshot.mjs` — captures any page at phone or desktop width for design comparison.
-- `docs/FEATURE_GAPS.md` — business features a real shop needs, marked have, partial or missing, with priorities.
 - `docs/GO_LIVE_CHECKLIST.md` — the remaining actions needed before taking real orders.
 
 ## Manual resume commands

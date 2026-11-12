@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-12. Server state is not tracked here; the owner starts and stops the apps manually.
 
-Start here when resuming. The API contract is [API_ENDPOINTS.md](API_ENDPOINTS.md), business gaps are in [docs/FEATURE_GAPS.md](docs/FEATURE_GAPS.md), and launch actions are in [docs/GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md).
+Start here when resuming. The API contract is [API_ENDPOINTS.md](API_ENDPOINTS.md), current launch actions are in [docs/GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md), and the remaining product backlog is below.
 
 ## Waiting on the owner
 
