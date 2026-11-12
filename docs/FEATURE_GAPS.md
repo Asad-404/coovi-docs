@@ -1,12 +1,12 @@
 # Missing business features
 
-Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi has them today. Written 2026-10-13 (states re-checked against GitHub on 2026-11-01) by reading the code in all three apps and comparing it with `docs/ADMIN_FEATURE_PLAN.md`. Safety and hosting gaps (backups, rate limits, domain) are in `docs/GO_LIVE_CHECKLIST.md`, not here.
+Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi has them today. Written 2026-10-13 (states re-checked against GitHub on 2026-11-01) by reading the code in all three apps. Safety and hosting gaps (backups, rate limits, domain) are in `docs/GO_LIVE_CHECKLIST.md`, not here.
 
 ## How to read this file
 
 - **State**: **Have** (built and working), **Partial** (some of it exists), **Missing** (not built).
 - **Priority**: **P1** needed to start selling for real, **P2** needed in the first month of real orders, **P3** worth adding as the shop grows.
-- **Plan**: the feature number in `docs/ADMIN_FEATURE_PLAN.md`, or **New** when the plan does not cover it yet.
+- **ID**: a legacy feature identifier retained for continuity; current priorities are in the tables and `QUICK_STATUS.md`.
 - What a shop "needs" here is Claude's judgement from how Bangladesh COD shops usually run (Facebook-led sales, courier delivery, confirmation calls). It is not checked against your own sales; change priorities to match how you actually sell.
 
 ## Summary
@@ -19,11 +19,11 @@ Which features a Bangladesh cash-on-delivery saree shop needs, and whether Coovi
 
 P1 status on 2026-10-15: new-order email alerts, pre-orders, district and delivery fee by area, internal notes and history, refused-parcel returns with restock, courier cash collection, shop settings and manual order entry are built and merged. Steadfast booking is built and waits on your Steadfast account. The customer order SMS is not built: coovi-api#15 was closed unmerged on 2026-11-02, and it waits on your choice of SMS company. The next build order is in `QUICK_STATUS.md` (Backlog).
 
-## Admin feature plan coverage
+## Feature coverage
 
-Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item in the `QUICK_STATUS.md` backlog appears in the tables below. As of 2026-11-01 features 1, 2, 3, 5, 6, 8 (customers and block list), 11 (statistics), 12 (order pages and search), 13 (roles) and 14 are built and merged, 4 (Steadfast) is merged and waits on your Steadfast account, and the rest are not built. The plan's groundwork steps G1 (order logic into services), G2 (public order view) and G3 (who did it) are internal changes with no screen of their own: they get built together with the first feature that needs them (features 2, 3, 10, 13, 14, 15 and 17).
+The former implementation plan has been retired. The tables below are the current business feature inventory; the numeric IDs are retained only so older notes and pull requests remain understandable. Current owner actions and build order live in `QUICK_STATUS.md` and `docs/GO_LIVE_CHECKLIST.md`.
 
-| Plan # | Feature | Table and priority |
+| ID | Feature | Table and priority |
 |---|---|---|
 | 1 | New-order alerts | Admin, P1 |
 | 2 | Cancel and return with restock | Admin, P1 |
@@ -47,7 +47,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 
 ## Customer side (storefront)
 
-| Feature | State | Priority | Plan | Notes |
+| Feature | State | Priority | ID | Notes |
 |---|---|---|---|---|
 | Browse, search, sort, sale page | Have | | | `/saree`, `/sale`, search in header. |
 | Product page with photo gallery | Have | | | Gallery, quantity, related products. |
@@ -77,7 +77,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 
 ## Running orders (admin)
 
-| Feature | State | Priority | Plan | Notes |
+| Feature | State | Priority | ID | Notes |
 |---|---|---|---|---|
 | Products: add, edit, delete, photo upload, sale price, stock | Have | | | |
 | Draft and publish, with photo rules | Have | | New | 2026-11-01: save a draft, publish when it has at least 3 upright 3:4 photos and a 1200 x 630 share image, and confirm before editing a published product (coovi-api#41, #42, coovi-admin#33, #34). |
@@ -107,7 +107,7 @@ Every feature in `docs/ADMIN_FEATURE_PLAN.md` (1 to 18) and every unbuilt item i
 
 ## Selling and marketing
 
-| Feature | State | Priority | Plan | Notes |
+| Feature | State | Priority | ID | Notes |
 |---|---|---|---|---|
 | Facebook Pixel and Conversions API | Not wanted | | New | Owner decision 2026-11-01: no ads. The browser pixel is removed (coovi-storefront#43) and the Conversions API will not be built. |
 | Facebook and Instagram product catalogue feed | Missing | P2 | New | Lets you tag products in posts. Not for ads (owner decision 2026-11-01). |
