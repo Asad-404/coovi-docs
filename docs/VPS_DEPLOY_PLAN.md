@@ -1,56 +1,104 @@
 # COOVI VPS Deployment Plan
 
-Last updated: 2026-11-14. Status: **infra files built, waiting on VPS provisioning.**
+Last updated: 2026-11-15. Status: **infra files built, waiting on Lightsail provisioning.**
 
-This document covers the full move from Vercel + Render + Atlas to a single Bangladesh VPS.
+This document covers the full move from Vercel + Render + Atlas to a single AWS Lightsail
+Virtual Server, fronted by Cloudflare, with images built by GitHub Actions and pushed to GHCR.
+
 Two phases:
 
 - **Phase A — Build now (no VPS needed).** Containerise each app, write orchestration, reverse-proxy,
-  backup and deploy scripts. ✅ Done in this pass; files listed in the inventory below.
-- **Phase B — On the VPS.** Provision, harden, clone, `docker compose up -d`, issue SSL, point DNS.
+  backup, deploy scripts, and CI/CD workflows. ✅ Done in this pass.
+- **Phase B — On the Lightsail VPS.** Provision, harden, clone, pull images, issue SSL, point DNS.
 
 ---
 
-## Target architecture
+## Architecture
 
 ```
-                      Internet (BDIX peers reach this cheaply)
-                                    │
-                      ┌─────────────┴──────────────┐
-                      │  Nginx :80 / :443           │  SSL termination + reverse proxy
-                      │  (coovi_nginx container)    │
-                      └───┬─────────────┬───────────┬──┘
-                          │             │            │
-           coovi.com/www  │  admin.     │  api.      │
-                          │             │            │
-               ┌──────────▼──┐  ┌───────▼────┐  ┌───▼──────────┐
-               │ storefront  │  │   admin    │  │   api         │
-               │  :3000      │  │  static    │  │   :5000       │
-               │  (Next 16)  │  │  (Nginx)   │  │  (Express 5)  │
-               └─────────────┘  └────────────┘  └──────┬────────┘
-                                                        │
-                                               ┌────────▼────────┐
-                                               │   MongoDB        │
-                                               │   :27017         │
-                                               │  (internal only) │
-                                               └─────────────────┘
+                 Shoppers (Bangladesh & Global)
+                               │
+                 ┌─────────────▼──────────────┐
+                 │  Cloudflare (Free Plan)    │  DNS, DDoS/Bot Shield, Dhaka BDIX Edge Cache
+                 └─────────────┬──────────────┘
+                               │ (HTTPS / Full Strict)
+                 ┌─────────────▼──────────────┐
+                 │ AWS Lightsail ($12/mo)     │  2 vCPU, 2 GB RAM, 60 GB SSD + 4 GB Swap
+                 │ Nginx :80 / :443           │  Dual-Stack (Public IPv4 + IPv6)
+                 └───┬─────────┬──────────┬───┘
+                     │         │          │
+       ┌─────────────▼─┐  ┌────▼────┐  ┌──▼────────────┐
+       │ storefront    │  │  admin  │  │  api          │
+       │ :3000 (Next)  │  │ (Nginx) │  │  :5000 (Expr)│
+       └──────┬────────┘  └─────────┘  └──────┬───────┘
+              │ (Images)                      │
+       ┌──────▼────────┐               ┌──────▼────────┐
+       │  Cloudinary   │               │   MongoDB 7   │
+       │  (Free CDN)   │               │  (Internal)   │
+       └───────────────┘               └───────────────┘
 ```
 
-- Only Nginx is exposed to the internet (ports 80 / 443).
-- MongoDB is on an internal Docker network; it is never published to the host.
-- Each service runs in its own container managed by Docker Compose.
+### Why this setup
+
+| Decision | Reasoning |
+|----------|-----------|
+| **Lightsail $12/mo Virtual Server** (not Container Service) | Container Services are stateless — incompatible with self-hosted MongoDB — and cost $40/mo for 2 GB RAM. The Virtual Server gives persistent SSD, full root, and 3 TB transfer for $12. |
+| **Dual-Stack ($12) over IPv6-only ($10)** | A dedicated public IPv4 ensures GitHub Actions SSH, `ghcr.io` pulls, Let's Encrypt, and payment/SMS APIs work without NAT64 workarounds. |
+| **Singapore (`ap-southeast-1`)** | Full 3 TB transfer allowance. Mumbai halves it to 1.5 TB. |
+| **Cloudflare in front** | Free DDoS/bot shield, Dhaka BDIX edge cache for static assets, and hides the origin IP. |
+| **GitHub Actions + GHCR** | Builds happen on GitHub's runners (free), not the 2 GB VPS. Next.js 16 builds can spike past 2 GB and would OOM-kill (`Exit Code 137`) on the server. Pre-built images mean the VPS only ever does `docker compose pull`. |
+| **Cloudinary** | Product images stored and served from Cloudinary's CDN. The Lightsail container never resizes images — `images.unoptimized: true` in `next.config.ts` offloads all image processing. |
+
+### Monthly cost
+
+| Component | Cost |
+|-----------|------|
+| AWS Lightsail 2 GB Dual-Stack | $12.00 |
+| Cloudflare Free | $0 |
+| Cloudinary Free | $0 |
+| GitHub Actions (free tier) | $0 |
+| GHCR (free for public images) | $0 |
+| **Total** | **$12.00/mo** |
 
 ---
 
 ## Services at a glance
 
-| Service      | Image base     | Port | Public domain         | Build output           |
-|--------------|----------------|------|-----------------------|------------------------|
-| coovi-api    | node:22-alpine | 5000 | api.coovi.com         | `tsc` → `node dist/`   |
-| storefront   | node:22-alpine | 3000 | coovi.com / www       | next standalone server |
-| admin        | nginx:alpine   | 80   | admin.coovi.com       | vite → static files    |
-| MongoDB      | mongo:7        | 27017| internal only         | official image          |
-| Nginx proxy  | nginx:alpine   | 80, 443 | (all domains)      | official image          |
+| Service      | Image                                  | Port | mem_limit | Public domain         |
+|--------------|----------------------------------------|------|-----------|-----------------------|
+| coovi-api    | `ghcr.io/asad-404/coovi-api:latest`    | 5000 | 350m      | api.coovi.com         |
+| storefront   | `ghcr.io/asad-404/coovi-storefront:latest` | 3000 | 650m | coovi.com / www       |
+| admin        | `ghcr.io/asad-404/coovi-admin:latest`   | 80   | 64m       | admin.coovi.com       |
+| MongoDB      | `mongo:7`                               | 27017| 512m      | internal only         |
+| Nginx proxy  | `nginx:alpine`                          | 80, 443 | 64m   | (all domains)         |
+
+**Total peak runtime cap: ~1.64 GB**, leaving ~360 MB headroom for the OS and Docker daemon on the 2 GB instance (plus 4 GB swap as a safety buffer).
+
+---
+
+## CI/CD flow
+
+```
+  Push to master (coovi-api repo)
+       │
+       ▼
+  GitHub Actions (ubuntu runner)
+   ├── checkout code
+   ├── docker build (with build-args for NEXT_PUBLIC_* / VITE_*)
+   ├── docker push → ghcr.io/asad-404/coovi-api:latest
+   └── SSH into Lightsail → ./scripts/deploy.sh api
+                              ├── docker compose pull coovi-api
+                              ├── docker compose up -d --no-deps coovi-api
+                              └── docker image prune -f
+```
+
+Each app repo (coovi-api, coovi-storefront, coovi-admin) has its own `.github/workflows/deploy.yml`
+that triggers on push to `master`. The workflow builds the image, pushes it to GHCR, then SSHes
+into the Lightsail server and runs the deploy script for that one service.
+
+**Why no on-server builds:** Next.js 16's build process can spike past 2 GB RAM and would be
+OOM-killed (`Exit Code 137`) on the 2 GB Lightsail instance. Building on GitHub Actions avoids
+this entirely — the server only pulls pre-built images.
 
 ---
 
@@ -61,51 +109,66 @@ Two phases:
 | File                                       | Purpose                                      |
 |--------------------------------------------|----------------------------------------------|
 | `docs/VPS_DEPLOY_PLAN.md`                  | This document                                |
-| `docker-compose.yml`                       | All five services, networks, volumes         |
-| `nginx/nginx.conf`                         | Main Nginx config                            |
+| `docs/DEPLOYMENT_EXPLAINED.md`             | Line-by-line explanation of every infra file |
+| `docker-compose.yml`                       | All five services, mem_limits, GHCR images  |
+| `nginx/nginx.conf`                         | Global Nginx config + Cloudflare real-IP     |
 | `nginx/sites/api.conf`                     | api.coovi.com → coovi-api:5000               |
-| `nginx/sites/storefront.conf`              | coovi.com / www → coovi-storefront:3000       |
+| `nginx/sites/storefront.conf`              | coovi.com / www → coovi-storefront:3000      |
 | `nginx/sites/admin.conf`                   | admin.coovi.com → coovi-admin:80             |
 | `scripts/backup.sh`                        | Daily mongodump, gzip, retain 14 days        |
-| `scripts/deploy.sh`                        | Pull + rebuild + restart one service or all  |
+| `scripts/deploy.sh`                        | Pull from GHCR + restart one service or all  |
 | `scripts/ssl-issue.sh`                     | First-time Let's Encrypt cert issue          |
 | `.env.production.example`                  | Root compose vars (Mongo credentials)        |
 
-### Per-app files (each in its own repo branch `feature/vps-deploy`)
+### Per-app files (each in its own repo, branch `feature/vps-deploy`)
 
 | File                                             | Purpose                                        |
 |--------------------------------------------------|------------------------------------------------|
-| `coovi-api/Dockerfile`                           | Multi-stage: build → slim node image           |
-| `coovi-api/.dockerignore`                        | Keeps node_modules, .env, tests out of image   |
-| `coovi-api/.env.production.example`              | API production env shape                       |
+| `coovi-api/Dockerfile`                            | Multi-stage build → slim node image           |
+| `coovi-api/.dockerignore`                         | Keeps secrets and junk out of image           |
+| `coovi-api/.env.production.example`              | API production env shape                      |
+| `coovi-api/.github/workflows/deploy.yml`          | Build → GHCR → SSH deploy                     |
 | `coovi-storefront/Dockerfile`                    | Next standalone build → slim node image        |
-| `coovi-storefront/.dockerignore`                 | Same                                           |
-| `coovi-storefront/.env.production.example`       | Storefront production env shape                |
-| `coovi-storefront/next.config.ts`                | +`output:'standalone'` when DOCKER_BUILD=true  |
-| `coovi-admin/Dockerfile`                         | Vite build → nginx static image                |
-| `coovi-admin/.dockerignore`                      | Same                                           |
-| `coovi-admin/nginx-spa.conf`                     | SPA client-routing fallback to index.html      |
+| `coovi-storefront/.dockerignore`                 | Same                                          |
+| `coovi-storefront/.env.production.example`        | Storefront production env shape               |
+| `coovi-storefront/.github/workflows/deploy.yml`   | Build with NEXT_PUBLIC_* args → GHCR → SSH    |
+| `coovi-storefront/next.config.ts`                 | `output:'standalone'` + `images.unoptimized`  |
+| `coovi-admin/Dockerfile`                          | Vite build → nginx static image                |
+| `coovi-admin/.dockerignore`                      | Same                                          |
+| `coovi-admin/nginx-spa.conf`                     | SPA client-routing fallback                    |
 | `coovi-admin/.env.production.example`            | Admin production env shape                     |
+| `coovi-admin/.github/workflows/deploy.yml`       | Build with VITE_* args → GHCR → SSH deploy    |
 
 ---
 
-## Phase B — When the VPS arrives
+## Phase B — When the Lightsail VPS is provisioned
 
-### 1. VPS provider (Bangladesh, BDIX, Dhaka, KVM)
+### 1. Provision the instance
 
-| Provider      | Notes                                      |
-|---------------|--------------------------------------------|
-| Novoserv      | KVM, Dhaka DC, BDIX peered                 |
-| BDiX Host     | Native BDIX, NVMe available                |
-| ServerBD      | KVM, Dhaka                                 |
-| Contabo (SG)  | Fallback if BD stock is out; good price    |
+- **Service:** AWS Lightsail → Virtual Server (not Container Service)
+- **Plan:** $12/month — 2 vCPU, 2 GB RAM, 60 GB SSD, 3 TB transfer
+- **Platform:** Ubuntu 24.04 LTS
+- **Region:** Singapore (`ap-southeast-1`) for the full 3 TB transfer allowance
+- **Networking:** Dual-Stack (IPv4 + IPv6) — confirm the instance has a public IPv4
 
-**Minimum spec:** 2 vCPU / 4 GB RAM / 50 GB NVMe / Ubuntu 24.04 LTS.
-**Recommended:** 8 GB RAM if the budget allows — Mongo + two Node processes + build spikes fit without stress.
+### 2. Lightsail Networking firewall
 
-### 2. Harden the server (run as root on first login)
+In the **Lightsail Console → Networking → IPv4 Firewall**, open:
+
+| Port | Protocol | Source | Purpose |
+|------|----------|--------|---------|
+| 22   | TCP      | (restricted — see below) | SSH for GitHub Actions deploys |
+| 80   | TCP      | Any (or Cloudflare IPs) | HTTP |
+| 443  | TCP      | Any (or Cloudflare IPs) | HTTPS |
+
+For SSH, restrict port 22 to GitHub Actions runner IP ranges if possible, or to your own IP for manual access. GitHub Actions runner IPs are published in the `actions` meta API.
+
+> **Note:** The Lightsail firewall is separate from `ufw` inside Ubuntu. Both must allow the ports. Cloudflare's proxy means the origin only ever receives traffic from Cloudflare's IP ranges — you can optionally restrict 80/443 to those ranges for extra security.
+
+### 3. Harden the server
 
 ```bash
+# As root, first login
 apt update && apt upgrade -y
 
 # Create a non-root deploy user
@@ -128,32 +191,58 @@ ufw enable
 apt install -y fail2ban && systemctl enable --now fail2ban
 ```
 
-### 3. Install Docker
+### 4. Create a 4 GB swap file
+
+The 2 GB RAM instance needs swap as a safety buffer for MongoDB and Node memory spikes.
 
 ```bash
-# Switch to deploy user for all subsequent steps
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# Make it permanent across reboots
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# Lower swappiness so swap is only used under pressure
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+# Verify
+free -h   # should show 2 GB RAM + 4 GB swap
+```
+
+### 5. Install Docker
+
+```bash
+# As deploy user
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker deploy
 newgrp docker
 docker --version && docker compose version
 ```
 
-### 4. Clone repos
+### 6. Clone the docs repo
 
 ```bash
 mkdir -p /home/deploy/coovi && cd /home/deploy/coovi
 
 # Docs repo — brings docker-compose.yml, nginx/, scripts/
 git clone https://github.com/Asad-404/coovi-docs.git .
-git checkout feature/vps-deploy-plan   # or merge to master first
-
-# App repos — each brings its own Dockerfile
-git clone https://github.com/<ORG>/coovi-api.git
-git clone https://github.com/<ORG>/coovi-storefront.git
-git clone https://github.com/<ORG>/coovi-admin.git
+git checkout master   # or the deploy-plan branch if not yet merged
 ```
 
-### 5. Create real env files
+The app repos are **not** cloned to the server. Images come from GHCR — the server only needs
+the `docker-compose.yml`, `nginx/` configs, `scripts/`, and `.env.production` files.
+
+### 7. Log in to GHCR on the server
+
+```bash
+# Create a GitHub Personal Access Token (classic) with read:packages scope
+echo "YOUR_GHCR_TOKEN" | docker login ghcr.io -u Asad-404 --password-stdin
+```
+
+### 8. Create real env files
 
 ```bash
 cp .env.production.example .env.production   # root (Mongo creds)
@@ -166,15 +255,22 @@ cp coovi-admin/.env.production.example    coovi-admin/.env.production
 Generate secrets:
 
 ```bash
-# JWT_SECRET and STOREFRONT_API_KEY (use same command for each)
+# JWT_SECRET and STOREFRONT_API_KEY
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### 6. First boot
+> **Note:** `NEXT_PUBLIC_*` and `VITE_*` variables are NOT in these files. They are baked
+> into the images at build time by GitHub Actions from repository Secrets. Set them in
+> GitHub → Settings → Secrets and variables → Actions:
+> - `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER` (storefront)
+> - `VITE_API_URL` (admin)
+> - `VPS_HOST`, `VPS_SSH_KEY` (all three repos, for the SSH deploy step)
+
+### 9. First boot
 
 ```bash
 cd /home/deploy/coovi
-docker compose build
+docker compose pull   # pulls all images from GHCR
 docker compose up -d
 docker ps   # all five containers should be "Up"
 docker compose logs -f coovi-api   # watch API connect to Mongo
@@ -187,24 +283,42 @@ curl http://localhost:5000/api/health   # → {"status":"ok"}
 curl http://localhost:3000              # → HTML
 ```
 
-### 7. Point DNS, then issue SSL
+### 10. Cloudflare DNS
 
-Point these A records to the VPS IP first:
+In the Cloudflare dashboard, add A records (Proxied / Orange Cloud enabled):
 
-```
-coovi.com       → <VPS IP>
-www.coovi.com   → <VPS IP>
-api.coovi.com   → <VPS IP>
-admin.coovi.com → <VPS IP>
-```
+| Name | Type | Content | Proxy |
+|------|------|---------|-------|
+| coovi.com | A | Lightsail IPv4 | Proxied |
+| www.coovi.com | A (or CNAME) | Lightsail IPv4 | Proxied |
+| api.coovi.com | A | Lightsail IPv4 | Proxied |
+| admin.coovi.com | A | Lightsail IPv4 | Proxied |
 
-Then run the issue script (waits for DNS to propagate first if needed):
+Set **SSL/TLS mode** to **Full (Strict)**. This means Cloudflare connects to your origin over
+HTTPS and verifies the Let's Encrypt cert.
+
+### 11. Issue SSL certificates
+
+Cloudflare's Full (Strict) mode requires a valid cert on the origin. Two options:
+
+**Option A — Let's Encrypt (recommended, free):**
 
 ```bash
 bash scripts/ssl-issue.sh you@coovi.com
 ```
 
-### 8. Backups cron
+> Cloudflare must be in "DNS only" (grey cloud) mode temporarily for the HTTP-01 challenge to
+> reach the origin directly, OR use Cloudflare's API to do a DNS-01 challenge. Simplest: temporarily
+> switch the four records to DNS-only, run the script, then switch back to Proxied.
+
+**Option B — Cloudflare Origin CA cert:**
+
+Create an Origin Certificate in Cloudflare → SSL/TLS → Origin Server. Copy the cert and key
+to the server and update the Nginx `ssl_certificate` paths. This cert is only trusted by
+Cloudflare, not by browsers — but since Cloudflare is in front, browsers see Cloudflare's own
+edge cert (which is trusted).
+
+### 12. Backups cron
 
 ```bash
 chmod +x scripts/backup.sh
@@ -212,32 +326,70 @@ chmod +x scripts/backup.sh
 bash scripts/backup.sh   # test it once manually
 ```
 
-### 9. Day-to-day deploys
+### 13. Day-to-day deploys
+
+Deploys happen automatically via GitHub Actions on push to `master`. For manual deploys:
 
 ```bash
-./scripts/deploy.sh api          # rebuild + restart only the API
+./scripts/deploy.sh api          # pull + restart only the API
 ./scripts/deploy.sh storefront
 ./scripts/deploy.sh admin
-./scripts/deploy.sh all          # rebuild + restart everything
+./scripts/deploy.sh all          # pull + restart everything
 ```
 
 ---
 
-## Go-live checklist (VPS-specific additions to GO_LIVE_CHECKLIST.md)
+## GitHub Secrets required
 
-- [ ] VPS provisioned: KVM, 2+ vCPU, 4+ GB RAM, NVMe 50+ GB, Ubuntu 24.04, BDIX/Dhaka
-- [ ] SSH hardened: root login off, password auth off, ufw active (22/80/443 only)
+Set these in **each** app repo under Settings → Secrets and variables → Actions:
+
+### All three repos
+
+| Secret | Example | Purpose |
+|--------|---------|---------|
+| `VPS_HOST` | `43.218.x.x` | Lightsail public IPv4 for SSH deploy |
+| `VPS_SSH_KEY` | `-----BEGIN OPENSSH...` | Private key for the `deploy` user |
+
+### coovi-storefront only
+
+| Secret | Example | Purpose |
+|--------|---------|---------|
+| `NEXT_PUBLIC_API_URL` | `https://api.coovi.com/api` | Baked into JS bundle at build time |
+| `NEXT_PUBLIC_SITE_URL` | `https://coovi.com` | Baked into JS bundle at build time |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | `8801712345678` | Baked into JS bundle at build time |
+
+### coovi-admin only
+
+| Secret | Example | Purpose |
+|--------|---------|---------|
+| `VITE_API_URL` | `https://api.coovi.com/api` | Baked into JS bundle at build time |
+
+> `GITHUB_TOKEN` is provided automatically by GitHub Actions — no need to create it manually.
+> It has permission to push to `ghcr.io` because the workflow sets `packages: write`.
+
+---
+
+## Go-live checklist
+
+- [ ] Lightsail instance provisioned: 2 vCPU, 2 GB RAM, 60 GB SSD, Ubuntu 24.04, Singapore
+- [ ] Dual-Stack confirmed (public IPv4 + IPv6)
+- [ ] Lightsail firewall open: 22 (restricted), 80, 443
+- [ ] SSH hardened: root login off, password auth off, ufw active
+- [ ] 4 GB swap file created and persistent across reboots
 - [ ] Docker + Compose installed, `deploy` user in docker group
-- [ ] All repos cloned to `/home/deploy/coovi` on the `feature/vps-deploy` branches
-- [ ] Real `.env.production` files created from examples (not committed)
-- [ ] Fresh `JWT_SECRET` generated and saved in a password manager
-- [ ] Fresh `STOREFRONT_API_KEY` generated, identical in API and storefront envs
-- [ ] Mongo root credentials set, different from any dev value
-- [ ] `docker compose up -d` — all five containers healthy (`docker ps`)
+- [ ] Server logged in to GHCR (`docker login ghcr.io`)
+- [ ] Docs repo cloned to `/home/deploy/coovi`
+- [ ] Real `.env.production` files created (Mongo creds, JWT_SECRET, STOREFRONT_API_KEY, etc.)
+- [ ] Fresh `JWT_SECRET` and `STOREFRONT_API_KEY` generated and saved in a password manager
+- [ ] GitHub Secrets set: `VPS_HOST`, `VPS_SSH_KEY` in all three repos
+- [ ] GitHub Secrets set: `NEXT_PUBLIC_*` in storefront, `VITE_API_URL` in admin
+- [ ] `docker compose pull && docker compose up -d` — all five containers healthy
 - [ ] `curl localhost:5000/api/health` returns 200
-- [ ] DNS A records set for all four (sub)domains
-- [ ] SSL certs issued, auto-renew cron active
+- [ ] Cloudflare DNS A records set (Proxied) for all four domains
+- [ ] Cloudflare SSL/TLS set to Full (Strict)
+- [ ] SSL certs issued (Let's Encrypt or Cloudflare Origin CA)
 - [ ] `https://coovi.com`, `https://api.coovi.com/health`, `https://admin.coovi.com` all load
+- [ ] Nginx real-IP working: check access log shows visitor IPs, not Cloudflare edge IPs
 - [ ] Backup script run once manually, nightly cron installed
 - [ ] All items in `docs/GO_LIVE_CHECKLIST.md` also completed
 
@@ -245,35 +397,53 @@ bash scripts/backup.sh   # test it once manually
 
 ## Notes
 
-### Self-hosted MongoDB vs Atlas
+### Memory budget (2 GB Lightsail + 4 GB swap)
 
-The compose file self-hosts MongoDB by default: BDIX-local latency, full control, local daily backups.
-To keep Atlas instead: remove the `mongodb` service and `mongo_data` volume from `docker-compose.yml`,
-set `MONGODB_URI` in `coovi-api/.env.production` to the Atlas connection string.
+| Component                        | Approx RAM | mem_limit |
+|----------------------------------|------------|-----------|
+| OS + Docker daemon               | ~0.4 GB    | —         |
+| MongoDB (WiredTiger cache 0.35 GB)| ~0.5 GB    | 512m      |
+| coovi-api                        | ~0.3 GB    | 350m      |
+| coovi-storefront                 | ~0.55 GB   | 650m      |
+| Nginx proxy                      | ~0.05 GB   | 64m       |
+| coovi-admin (nginx static)       | ~0.02 GB   | 64m       |
+| **Total**                        | **~1.8 GB**| **1.64 GB**|
+
+Leaves ~200 MB free RAM with 4 GB swap as overflow. Tight but workable. The mem_limits prevent
+any single container from OOM-killing the others. If you upgrade to a 4 GB instance later,
+remove the mem_limits and the `--wiredTigerCacheSizeGB` cap for better performance.
+
+### Cloudflare real IP
+
+Cloudflare proxies every request, so without the `set_real_ip_from` directives in `nginx.conf`,
+Nginx sees all traffic coming from Cloudflare's edge IPs. Rate limiting in the API would then
+treat all visitors as one. The `real_ip_header CF-Connecting-IP` directive restores the real
+visitor IP. Update the IP ranges from https://www.cloudflare.com/ips/ periodically.
+
+### MongoDB vs Atlas
+
+The compose file self-hosts MongoDB. To keep Atlas instead: remove the `mongodb` service,
+remove `mongo_data` volume and the `internal` network, set `MONGODB_URI` in
+`coovi-api/.env.production` to the Atlas connection string, and use Atlas's own backups.
 
 ### Rollback
 
-Each service is a container. Roll back a bad API deploy by checking out the last good commit and rebuilding:
+Each service is a container tagged `:latest` on GHCR. To roll back, you need the previous image
+digest or a versioned tag. Consider tagging images with the commit SHA in addition to `:latest`
+for easy rollbacks:
 
 ```bash
-cd coovi-api && git log --oneline -5
-git checkout <good-sha>
-cd .. && ./scripts/deploy.sh api
+# On the server, pull a specific older image
+docker pull ghcr.io/asad-404/coovi-api@sha256:<previous-digest>
+docker compose up -d --no-deps coovi-api
 ```
 
 Mongo data lives on the `mongo_data` named volume. `docker compose down` does not delete it;
 only `docker compose down -v` does. Never run `-v` in production unless you mean to wipe the database.
 
-### Memory budget (4 GB VPS, self-hosted Mongo)
+### Cloudflare cache and Next.js ISR
 
-| Component                       | Approx RAM |
-|---------------------------------|------------|
-| OS + Docker daemon              | ~0.6 GB    |
-| MongoDB (WiredTiger cache)      | ~1.2 GB    |
-| coovi-api                       | ~0.3 GB    |
-| coovi-storefront                | ~0.3 GB    |
-| Nginx proxy                     | ~0.05 GB   |
-| coovi-admin (nginx static)      | ~0.02 GB   |
-| **Total**                       | **~2.5 GB**|
-
-~1.5 GB headroom for build spikes and traffic bursts. Comfortable on 4 GB.
+Cloudflare's edge cache will serve cached HTML. Next.js ISR revalidation still works because
+Cloudflare forwards the request to the origin on a cache miss, and the origin (Next.js) serves
+the revalidated page. If you need to bust Cloudflare's cache for a specific page, use the
+Cloudflare dashboard → Caching → Purge → Custom Purge by URL.

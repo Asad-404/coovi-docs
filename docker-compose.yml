@@ -5,6 +5,8 @@ services:
     image: mongo:7
     container_name: coovi_mongo
     restart: unless-stopped
+    mem_limit: 512m
+    command: ["--wiredTigerCacheSizeGB", "0.35"]
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
@@ -16,11 +18,12 @@ services:
     # Port NOT published to the host — API reaches Mongo over the internal network only.
 
   coovi-api:
-    build:
-      context: ./coovi-api
-      dockerfile: Dockerfile
+    image: ghcr.io/asad-404/coovi-api:latest
     container_name: coovi_api
     restart: unless-stopped
+    mem_limit: 350m
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=256
     env_file: ./coovi-api/.env.production
     depends_on:
       - mongodb
@@ -31,13 +34,12 @@ services:
       - "5000"
 
   coovi-storefront:
-    build:
-      context: ./coovi-storefront
-      dockerfile: Dockerfile
-      args:
-        DOCKER_BUILD: "true"
+    image: ghcr.io/asad-404/coovi-storefront:latest
     container_name: coovi_storefront
     restart: unless-stopped
+    mem_limit: 650m
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=512
     env_file: ./coovi-storefront/.env.production
     depends_on:
       - coovi-api
@@ -47,11 +49,10 @@ services:
       - "3000"
 
   coovi-admin:
-    build:
-      context: ./coovi-admin
-      dockerfile: Dockerfile
+    image: ghcr.io/asad-404/coovi-admin:latest
     container_name: coovi_admin
     restart: unless-stopped
+    mem_limit: 64m
     networks:
       - web
     expose:
@@ -61,6 +62,7 @@ services:
     image: nginx:alpine
     container_name: coovi_nginx
     restart: unless-stopped
+    mem_limit: 64m
     ports:
       - "80:80"
       - "443:443"

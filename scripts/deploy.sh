@@ -1,5 +1,6 @@
 #!/bin/bash
-# Rebuild and restart one service or all.
+# Pull latest pre-built images from ghcr.io and restart one service or all.
+# Images are built by GitHub Actions and pushed to GHCR — no on-server builds.
 # Usage:
 #   ./scripts/deploy.sh api
 #   ./scripts/deploy.sh storefront
@@ -9,37 +10,21 @@ set -e
 
 SERVICE=${1:-all}
 ROOT="/home/deploy/coovi"
+COMPOSE="docker compose -f $ROOT/docker-compose.yml"
 
-pull() {
+pull_restart() {
   echo "→ Pulling $1..."
-  git -C "$ROOT/$1" pull origin main
-}
-
-rebuild() {
-  echo "→ Rebuilding $1..."
-  docker compose -f "$ROOT/docker-compose.yml" build "$1"
-  docker compose -f "$ROOT/docker-compose.yml" up -d --no-deps "$1"
+  $COMPOSE pull "$1"
+  $COMPOSE up -d --no-deps "$1"
 }
 
 case $SERVICE in
-  api)
-    pull coovi-api
-    rebuild coovi-api
-    ;;
-  storefront)
-    pull coovi-storefront
-    rebuild coovi-storefront
-    ;;
-  admin)
-    pull coovi-admin
-    rebuild coovi-admin
-    ;;
+  api)        pull_restart coovi-api        ;;
+  storefront) pull_restart coovi-storefront ;;
+  admin)      pull_restart coovi-admin      ;;
   all)
-    pull coovi-api
-    pull coovi-storefront
-    pull coovi-admin
-    docker compose -f "$ROOT/docker-compose.yml" build
-    docker compose -f "$ROOT/docker-compose.yml" up -d
+    $COMPOSE pull
+    $COMPOSE up -d
     ;;
   *)
     echo "Usage: $0 api | storefront | admin | all"
