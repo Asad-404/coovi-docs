@@ -19,13 +19,26 @@ Right now COOVI runs across three separate cloud services:
 That works, but every service has free-tier limits, sleeps after inactivity, and you pay three separate bills. The new setup moves everything to a single server with Cloudflare in front:
 
 ```
-Shoppers
-    │
- Cloudflare   ← free CDN, DDoS protection, Bangladesh edge cache
-    │
- AWS Lightsail VPS ($12/mo)
-    │
- Nginx → API / Storefront / Admin / MongoDB
+                 Shoppers (Bangladesh & Global)
+                               │
+                 ┌─────────────▼──────────────┐
+                 │  Cloudflare (Free Plan)    │  DNS, DDoS/Bot Shield, Dhaka BDIX Edge Cache
+                 └─────────────┬──────────────┘
+                               │ (HTTPS / Full Strict)
+                 ┌─────────────▼──────────────┐
+                 │ AWS Lightsail ($12/mo)     │  2 vCPU, 2 GB RAM, 60 GB SSD + 4 GB Swap
+                 │ Nginx :80 / :443           │  Dual-Stack (Public IPv4 + IPv6)
+                 └───┬─────────┬──────────┬───┘
+                     │         │          │
+       ┌─────────────▼─┐  ┌────▼────┐  ┌──▼────────────┐
+       │ storefront    │  │  admin  │  │  api          │
+       │ :3000 (Next)  │  │ (Nginx) │  │  :5000 (Expr)│
+       └──────┬────────┘  └─────────┘  └──────┬───────┘
+              │ (Images)                      │
+       ┌──────▼────────┐               ┌──────▼────────┐
+       │  Cloudinary   │               │   MongoDB 7   │
+       │  (Free CDN)   │               │  (Internal)   │
+       └───────────────┘               └───────────────┘
 ```
 
 ### Key decisions explained
