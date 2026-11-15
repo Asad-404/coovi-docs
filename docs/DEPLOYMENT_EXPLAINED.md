@@ -16,9 +16,17 @@ Right now COOVI runs across three separate cloud services:
 | Admin panel (React) | Vercel |
 | Database (MongoDB) | Atlas |
 
-That works, but every service has free-tier limits, sleeps after inactivity, and you pay three separate bills. Moving to a VPS means **one machine runs everything**. The challenge: how do you run five different programs on one Linux server without them conflicting, and how do you manage them together?
+That works, but every service has free-tier limits, sleeps after inactivity, and you pay three separate bills. The new setup moves everything to a single server, with one important addition in the middle:
 
-The answer is **Docker**. Everything in this repository supports Docker.
+```
+Shoppers
+    │
+ Cloudflare   ← free CDN, DDoS protection, Bangladesh edge cache
+    │
+ AWS Lightsail VPS ($12/mo)
+    │
+ Nginx → API / Storefront / Admin / MongoDB
+```
 
 ---
 
@@ -74,12 +82,50 @@ Nginx is also responsible for **SSL** (the padlock in the browser). It decrypts 
 
 ---
 
-## Concept 4 — Networks and Security
+## Concept 4 — What is Cloudflare?
+
+Cloudflare sits between the internet and your server. When you set a domain's DNS through Cloudflare with the orange cloud (Proxied) enabled, every request goes to Cloudflare's nearest data centre first — including one in Dhaka. Cloudflare then forwards the request to your server.
+
+This gives you three things for free:
+- **DDoS / bot protection** — Cloudflare absorbs attacks before they reach your server.
+- **Edge caching** — static assets (CSS, JS, images) served from Dhaka instead of Singapore means faster load times for Bangladeshi visitors.
+- **Origin IP hidden** — attackers cannot find your real server IP by looking up the domain.
+
+The downside is that every request now comes from a Cloudflare IP address, not the visitor's real IP. This matters for rate limiting — if Nginx sees all traffic as one IP, everyone shares the same rate limit bucket. The Nginx config fixes this (explained in the nginx.conf section).
+
+---
+
+## Concept 5 — What is GitHub Actions + GHCR?
+
+**GitHub Actions** is a system that runs automated tasks when you push code. Each task is defined in a `.github/workflows/` YAML file.
+
+**GHCR** (GitHub Container Registry) is Docker Hub but hosted by GitHub. It stores Docker images. Public images are free.
+
+The deploy flow for each app:
+
+```
+You push code to master
+        │
+GitHub Actions runner (a temporary Linux VM, free)
+        ├── builds the Docker image (pnpm install, tsc, next build, etc.)
+        ├── pushes the image to ghcr.io/asad-404/<app>:latest
+        └── SSHes into the Lightsail server
+                └── docker compose pull <app>   ← downloads the new image
+                    docker compose up -d        ← swaps the running container
+```
+
+**Why not build on the server?** Next.js 16 builds can spike past 2 GB of RAM. A `docker compose build` on the 2 GB Lightsail instance would be killed by the OS mid-build (this is called an OOM kill — Out Of Memory). Building on GitHub's runners avoids this entirely; the server only ever downloads a finished image.
+
+---
+
+## Concept 6 — Networks and Security
 
 Docker containers can talk to each other, but only if they're on the same **network**. We create two networks:
 
 ```
 [ Internet ]
+      │
+ [ Cloudflare edge ]
       │
   [ Nginx ]  ← only container exposed to the internet
       │
@@ -122,24 +168,27 @@ The Docker Compose file format version. 3.9 is stable and widely supported.
 #### The MongoDB service
 
 ```yaml
-services:
   mongodb:
     image: mongo:7
+    mem_limit: 512m
+    command: ["--wiredTigerCacheSizeGB", "0.35"]
 ```
 
-`services` lists every container. `mongodb` uses the official Mongo 7 image from Docker Hub — no Dockerfile needed. Docker downloads it automatically.
+`image: mongo:7` uses the official Mongo 7 image — no Dockerfile needed. `mem_limit: 512m` caps MongoDB at 512 MB of RAM. Without a cap, MongoDB's WiredTiger storage engine will claim as much RAM as it can find. On a 2 GB server shared by five containers, that would starve everything else.
+
+`command` overrides the default command inside the container with this argument. `--wiredTigerCacheSizeGB 0.35` tells MongoDB's storage engine to use at most 350 MB for its in-memory cache. This is what keeps it inside the 512m limit — without it, MongoDB ignores the container's memory cap and gets killed by the OS anyway.
 
 ```yaml
     container_name: coovi_mongo
 ```
 
-Gives the container a fixed, predictable name. Other containers can connect to MongoDB using `coovi_mongo` as a hostname. Docker has built-in DNS — container names resolve to container IPs automatically. Without this, Docker assigns a random name on every boot.
+Gives the container a fixed name. Other containers connect to MongoDB using `coovi_mongo` as a hostname. Docker has built-in DNS — container names resolve to container IPs automatically.
 
 ```yaml
     restart: unless-stopped
 ```
 
-If the container crashes, Docker restarts it. `unless-stopped` means "restart on crash, but not if I manually ran `docker stop`." This keeps your services up after a server reboot.
+If the container crashes, Docker restarts it. `unless-stopped` means "restart on crash, but not if I manually ran `docker stop`." This keeps services up after a server reboot.
 
 ```yaml
     environment:
@@ -148,21 +197,21 @@ If the container crashes, Docker restarts it. `unless-stopped` means "restart on
       MONGO_INITDB_DATABASE: coovi
 ```
 
-These environment variables are read by the Mongo image on **first boot only** to create the root user and the database. `${MONGO_USER}` and `${MONGO_PASS}` are placeholders — Docker Compose fills them in from your `.env.production` file in the same directory.
+These are read by the Mongo image on **first boot only** to create the root user and the database. `${MONGO_USER}` and `${MONGO_PASS}` are placeholders — Docker Compose fills them in from your `.env.production` file.
 
 ```yaml
     volumes:
       - mongo_data:/data/db
 ```
 
-MongoDB stores all data in `/data/db` inside the container. Without this line, **all your data is deleted every time the container restarts** (containers are stateless by default). This line mounts a **named volume** called `mongo_data` onto that path. The volume lives on the host machine's real disk and survives container restarts, rebuilds, and even `docker compose down`.
+MongoDB stores all data in `/data/db` inside the container. Without this line, **all your data is deleted every time the container restarts**. This mounts a **named volume** called `mongo_data` — it lives on the host machine's real disk and survives container restarts and rebuilds.
 
 ```yaml
     networks:
       - internal
 ```
 
-MongoDB is only on the `internal` network — not reachable from the outside, only from the API.
+MongoDB is only on the `internal` network — not reachable from outside, only from the API.
 
 ---
 
@@ -170,12 +219,18 @@ MongoDB is only on the `internal` network — not reachable from the outside, on
 
 ```yaml
   coovi-api:
-    build:
-      context: ./coovi-api
-      dockerfile: Dockerfile
+    image: ghcr.io/asad-404/coovi-api:latest
 ```
 
-Instead of `image:` (which downloads a pre-built image), `build:` tells Compose to build the image from a Dockerfile. `context` is the folder it uses as the root for `COPY` commands. `dockerfile` names the Dockerfile to use.
+Previously this was `build: context: ./coovi-api`. Now it's `image:` — Docker pulls this pre-built image from GitHub Container Registry instead of building it on the server. GitHub Actions builds and pushes the image; the server just downloads it.
+
+```yaml
+    mem_limit: 350m
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=256
+```
+
+`mem_limit: 350m` caps the container at 350 MB. `NODE_OPTIONS=--max-old-space-size=256` tells Node's V8 engine to cap its own JavaScript heap at 256 MB. These two work together — the heap limit is set below the container limit so Node triggers its own garbage collector before the container's hard cap is hit. If the heap limit weren't set, Node might silently accumulate memory up to the container cap and then get killed.
 
 ```yaml
     env_file: ./coovi-api/.env.production
@@ -188,7 +243,7 @@ Load all variables from this file into the container. This is how `process.env.M
       - mongodb
 ```
 
-Don't start the API until the MongoDB container has started. Note: "started" means the process launched, not that Mongo is fully ready. For safety, Mongoose retries the connection automatically on startup.
+Don't start the API until MongoDB has started. Mongoose retries the connection automatically, so a brief startup gap is fine.
 
 ```yaml
     networks:
@@ -198,9 +253,7 @@ Don't start the API until the MongoDB container has started. Note: "started" mea
       - "5000"
 ```
 
-The API is on **both** networks — it needs `internal` to reach MongoDB, and `web` so Nginx can forward requests to it.
-
-`expose` makes port 5000 visible to other containers on the same network, but **not to the host machine or the internet**. If you wanted to open it to the outside world you'd use `ports:` instead. We don't — only Nginx should ever talk to the API directly.
+On both networks — needs `internal` to reach MongoDB, `web` so Nginx can reach it. `expose` makes port 5000 visible only to containers on the same network, not to the host or internet.
 
 ---
 
@@ -208,12 +261,19 @@ The API is on **both** networks — it needs `internal` to reach MongoDB, and `w
 
 ```yaml
   coovi-storefront:
-    build:
-      args:
-        DOCKER_BUILD: "true"
+    image: ghcr.io/asad-404/coovi-storefront:latest
+    mem_limit: 650m
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=512
 ```
 
-This passes a **build argument** into the Dockerfile. The Dockerfile passes it to `next build`, which makes Next.js produce a "standalone" output — a minimal bundle that only needs `node server.js` to run. More on this in the Dockerfile section. Vercel never sets this variable, so Vercel deployments are unaffected.
+Same pattern — pre-built image from GHCR, memory cap, Node heap limit set below the cap. Next.js is the most memory-hungry service so it gets the largest allocation (650m).
+
+```yaml
+    env_file: ./coovi-storefront/.env.production
+```
+
+This file contains `STOREFRONT_API_KEY` (a server-side secret) and `NODE_ENV`. It does **not** contain `NEXT_PUBLIC_*` variables — those are baked into the JS bundle at build time by GitHub Actions and cannot be changed at runtime.
 
 ---
 
@@ -221,18 +281,11 @@ This passes a **build argument** into the Dockerfile. The Dockerfile passes it t
 
 ```yaml
   coovi-admin:
-    build:
-      context: ./coovi-admin
-      dockerfile: Dockerfile
-    container_name: coovi_admin
-    restart: unless-stopped
-    networks:
-      - web
-    expose:
-      - "80"
+    image: ghcr.io/asad-404/coovi-admin:latest
+    mem_limit: 64m
 ```
 
-The admin panel is a static site — after Vite builds it, there's no Node process. The container is just Nginx serving HTML/CSS/JS files. It only needs the `web` network (so the main Nginx proxy can reach it) and no env file (there are no server-side secrets; the API URL is baked in at build time).
+The admin panel is static files served by Nginx. No Node process, no env file. 64 MB is generous for Nginx serving HTML/CSS/JS. `VITE_API_URL` is baked into the bundle at build time by GitHub Actions.
 
 ---
 
@@ -241,14 +294,13 @@ The admin panel is a static site — after Vite builds it, there's no Node proce
 ```yaml
   nginx:
     image: nginx:alpine
-    container_name: coovi_nginx
-    restart: unless-stopped
+    mem_limit: 64m
     ports:
       - "80:80"
       - "443:443"
 ```
 
-Nginx is the **only container that uses `ports`**. Format is `"host_port:container_port"`. This maps port 80 on the VPS to port 80 inside the Nginx container. When a browser connects to your server's IP on port 80, the traffic arrives here.
+Nginx is the **only container that uses `ports`** — it's the only one the outside world can reach directly. `"80:80"` maps port 80 on the VPS host to port 80 inside the container. All other containers use `expose` (visible to other containers on the Docker network only).
 
 ```yaml
     volumes:
@@ -258,32 +310,28 @@ Nginx is the **only container that uses `ports`**. Format is `"host_port:contain
       - certbot_certs:/etc/letsencrypt:ro
 ```
 
-These are **bind mounts** — they link files on your host machine directly into the container. `./nginx/nginx.conf:/etc/nginx/nginx.conf` takes the config file from your project folder and makes it the config file Nginx reads. `:ro` means read-only. If you edit the config file on the host, it's immediately reflected inside the container (after an `nginx -s reload`).
-
-`certbot_www` and `certbot_certs` are the named volumes that Let's Encrypt uses. They're shared between Nginx (which needs to serve the challenge files and the SSL certs) and the Certbot tool (which writes them).
+**Bind mounts** link files on your host machine directly into the container. `./nginx/nginx.conf:/etc/nginx/nginx.conf` means the config file you edit on disk IS the config file Nginx reads. `:ro` means read-only. `certbot_www` and `certbot_certs` are named volumes shared with the Certbot tool for SSL certificates.
 
 ---
 
-#### Networks and Volumes declarations
+#### Memory budget summary
 
-```yaml
-networks:
-  web:
-  internal:
+| Container | mem_limit | Node heap cap |
+|-----------|-----------|---------------|
+| MongoDB   | 512m      | (WiredTiger 0.35 GB) |
+| API       | 350m      | 256m |
+| Storefront| 650m      | 512m |
+| Admin     | 64m       | — (Nginx, not Node) |
+| Nginx     | 64m       | — |
+| **Total** | **1.64 GB** | |
 
-volumes:
-  mongo_data:
-  certbot_www:
-  certbot_certs:
-```
-
-You must declare networks and volumes before using them. These empty declarations tell Compose to create them with default settings when you first run `docker compose up`.
+OS + Docker daemon uses ~0.4 GB, leaving ~360 MB free RAM with a 4 GB swap file as a safety buffer.
 
 ---
 
 ### The Three Dockerfiles
 
-A Dockerfile is a list of instructions for building a container image. Every line creates a **layer** — Docker caches each layer separately. If line 5 hasn't changed since last time, Docker reuses the cached result instead of re-running it. This makes rebuilds fast.
+A Dockerfile is a list of instructions for building a container image. Every line creates a **layer** — Docker caches each layer separately. If line 5 hasn't changed since last time, Docker reuses the cached result. This makes rebuilds fast.
 
 ---
 
@@ -293,37 +341,28 @@ A Dockerfile is a list of instructions for building a container image. Every lin
 FROM node:22-alpine AS builder
 ```
 
-`FROM` means "start from this base image." You don't install Linux from scratch — you start from an image that already has Node 22 and Alpine Linux (a tiny 5 MB Linux distro, vs Ubuntu's 100 MB+). `AS builder` names this stage "builder."
-
-**Why two stages?** This is called a **multi-stage build**. Stage 1 (`builder`) installs everything needed to compile the app: TypeScript compiler, type definitions, test tools. Stage 2 (`runner`) is a fresh, clean image that gets only the compiled output. The final image has no compiler, no test runner — just what's needed to run.
+Start from a base image that already has Node 22 on Alpine Linux (a 5 MB Linux distro, vs Ubuntu's 100 MB+). `AS builder` names this stage — this is a **multi-stage build**. Stage 1 compiles the app; stage 2 is a clean image with only the compiled output.
 
 ```dockerfile
 WORKDIR /app
-```
-
-All following commands run from `/app` inside the container. Like `cd /app` and staying there forever.
-
-```dockerfile
 RUN corepack enable && corepack prepare pnpm@latest --activate
 ```
 
-`RUN` executes a shell command during the build. Node 22 includes **corepack**, a tool for managing package managers. This activates pnpm. The `&&` chains two commands into one layer (fewer layers = smaller image).
+Set the working directory. Enable pnpm via corepack (bundled with Node 22).
 
 ```dockerfile
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 ```
 
-**The most important Dockerfile pattern.** Copy *only* the package files first, then install. If your source code changes but `package.json` didn't, Docker reuses the cached `pnpm install` layer — skipping re-downloading all packages. This turns a 60-second rebuild into a 5-second one.
-
-`--frozen-lockfile` means "if `pnpm-lock.yaml` doesn't match `package.json`, fail." Prevents surprise version changes in production.
+**The most important Dockerfile pattern.** Copy package files first, then install. If your source code changes but `package.json` didn't, Docker reuses the cached install layer — a 60-second install becomes instant. `--frozen-lockfile` fails if the lockfile is out of sync.
 
 ```dockerfile
 COPY . .
 RUN pnpm build
 ```
 
-Now copy the rest of the source, then run `pnpm build` which runs `tsc` (TypeScript compiler). This turns `src/*.ts` files into `dist/*.js` files.
+Copy the rest of the source, then compile TypeScript → `dist/`.
 
 ```dockerfile
 FROM node:22-alpine AS runner
@@ -331,309 +370,387 @@ WORKDIR /app
 ENV NODE_ENV=production
 ```
 
-**New stage — clean slate.** Nothing from `builder` carries over unless you explicitly copy it. `ENV` sets an environment variable permanently in the image. `NODE_ENV=production` makes Express enable production optimisations and hide detailed error messages from API responses.
+**New stage — clean slate.** Nothing from `builder` carries over unless explicitly copied. `NODE_ENV=production` makes Express hide error details from API responses and enables production optimisations.
 
 ```dockerfile
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod
-```
-
-Install pnpm again (clean stage), then install **only production dependencies** (`--prod`). This skips TypeScript, vitest, type definitions — everything only needed to build or test.
-
-```dockerfile
 COPY --from=builder /app/dist ./dist
 ```
 
-Copy only the compiled JavaScript from the `builder` stage. `--from=builder` reaches into the previous stage. The final image contains: Node.js, production packages, and `dist/`. Nothing else.
+Install **only production dependencies** (`--prod` skips TypeScript, vitest, etc.). Copy only `dist/` from the builder stage. Final image: Node + production packages + `dist/`. No compiler, no test runner, no source files.
 
 ```dockerfile
 EXPOSE 5000
 CMD ["node", "dist/index.js"]
 ```
 
-`EXPOSE` documents which port this container listens on. It doesn't open the port — Docker Compose handles that. It's documentation.
-
-`CMD` is what runs when the container starts. This starts the Express server.
+Document the port. Set the startup command.
 
 ---
 
 #### `coovi-storefront/Dockerfile`
 
-Same pattern as the API, with two differences specific to Next.js.
+Same pattern as the API with extra build-time variables:
 
 ```dockerfile
 ARG DOCKER_BUILD=true
 ENV DOCKER_BUILD=$DOCKER_BUILD
+
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_WHATSAPP_NUMBER
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_WHATSAPP_NUMBER=$NEXT_PUBLIC_WHATSAPP_NUMBER
 ```
 
-`ARG` is a build-time variable (exists only during `docker build`, not at runtime). It's set to `true` by Docker Compose (via `args: DOCKER_BUILD: "true"`). `ENV` promotes it into an environment variable so `next.config.ts` can read it via `process.env.DOCKER_BUILD`.
+`ARG` declares a build-time variable — it exists only during `docker build`, not at runtime. `ENV` promotes it to a real environment variable so `process.env.NEXT_PUBLIC_*` works during the build.
 
-The runner stage is different from the API:
+**Why are these in the Dockerfile and not in `.env.production`?** Because `NEXT_PUBLIC_*` variables in Next.js are baked into the JavaScript bundle at build time. By the time the container is running, the bundle is already compiled — changing an env var at runtime has no effect. These values must exist when `next build` runs, which is during the Docker build step on GitHub Actions. GitHub Actions reads them from GitHub Secrets and passes them as `--build-arg`.
+
+The runner stage is slimmer than the API:
 
 ```dockerfile
 FROM node:22-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static     ./.next/static
 COPY --from=builder /app/public           ./public
-
-EXPOSE 3000
 CMD ["node", "server.js"]
 ```
 
-No `pnpm install` here. When Next.js builds in **standalone mode**, it bundles its own minimal `node_modules` inside `.next/standalone/`. So the runner just copies three things:
-
-| What | Why |
-|------|-----|
-| `.next/standalone/` | The server + its bundled dependencies |
-| `.next/static/` | CSS, JavaScript, images for the browser |
-| `public/` | Fonts, favicons, robots.txt |
-
-`server.js` is a file Next.js generates inside `.next/standalone/`. It's a plain Node HTTP server — no Next.js tooling required to run it. The final image is ~150 MB instead of ~1 GB.
+No `pnpm install` here. When Next.js builds in **standalone mode** (triggered by `DOCKER_BUILD=true` → `output: 'standalone'` in `next.config.ts`), it bundles its own minimal `node_modules` inside `.next/standalone/`. Three things copied: the server bundle, the static assets, and the public folder. Final image is ~150 MB instead of ~1 GB.
 
 ---
 
 #### `coovi-admin/Dockerfile`
 
-The admin panel compiles to pure static files — HTML, CSS, JavaScript. There's no server process. You just need something to serve the files over HTTP.
-
 ```dockerfile
-FROM node:22-alpine AS builder
-# ... same install + build pattern ...
-RUN pnpm build   # outputs to dist/
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 ```
+
+Same pattern — `VITE_*` variables are baked into the bundle by Vite at build time. They must arrive as build arguments from GitHub Actions.
 
 ```dockerfile
 FROM nginx:alpine AS runner
-```
-
-The runner stage doesn't even use Node. It uses **Nginx** as a static file server. The image is under 10 MB.
-
-```dockerfile
 COPY --from=builder /app/dist /usr/share/nginx/html
-```
-
-Copy the compiled files into Nginx's default web root.
-
-```dockerfile
 COPY nginx-spa.conf /etc/nginx/conf.d/default.conf
-```
-
-Replace Nginx's default config with our custom one (explained next).
-
-```dockerfile
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-`daemon off` keeps Nginx in the foreground. Docker needs the main process to stay in the foreground — if it goes to the background, Docker thinks the container stopped.
+The runner uses `nginx:alpine` (not Node) because the admin panel is pure static files after build. No server process. `daemon off` keeps Nginx in the foreground — Docker needs the main process to stay there or it assumes the container stopped.
 
 ---
 
 ### `coovi-admin/nginx-spa.conf`
 
-This config is for the Nginx *inside* the admin container. It only controls how the admin panel's static files are served.
+The Nginx config inside the admin container (separate from the main reverse-proxy Nginx).
 
 ```nginx
-server {
-  listen 80;
-  root /usr/share/nginx/html;
-  index index.html;
+location / {
+  try_files $uri $uri/ /index.html;
+}
 ```
 
-Listen on port 80. Serve files from `/usr/share/nginx/html`. When someone visits `/`, serve `index.html`.
+The **SPA fix**. Without it, refreshing `admin.coovi.com/orders` returns 404 — there's no `orders.html` on disk. React Router handles that URL in JavaScript. `try_files` tries the exact file, then tries it as a directory, then falls back to `index.html`. React boots, reads the URL, renders the right page.
 
 ```nginx
-  location / {
-    try_files $uri $uri/ /index.html;
-  }
+location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?)$ {
+  expires 1y;
+  add_header Cache-Control "public, immutable";
+}
 ```
 
-This is the **SPA fix**. Without it, refreshing `admin.coovi.com/orders` would return a 404 — there's no `orders.html` file on disk. React Router handles that URL in JavaScript.
-
-`try_files` says: try the exact file → try it as a directory → if neither exists, serve `index.html`. React then boots up, reads the URL from the browser, and renders the right page.
-
-```nginx
-  location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?)$ {
-    expires 1y;
-    add_header Cache-Control "public, immutable";
-  }
-```
-
-`~*` means "match this regex, case-insensitive." This matches any file ending in `.js`, `.css`, images, or fonts.
-
-Vite adds a **content hash** to every filename when it builds (e.g. `main.a3f9b2.js`). The filename changes whenever the content changes. This means it's safe to tell browsers to cache these files for **one year** (`expires 1y`) and never re-check them (`immutable`). Returning visitors load the admin panel almost instantly from their browser cache.
+Vite adds a content hash to every filename (e.g. `main.a3f9b2.js`). The name changes whenever content changes, so it's safe to cache these files for a year. Returning visitors load the admin panel from their browser cache instantly.
 
 ---
 
 ### `nginx/nginx.conf`
 
-The master Nginx config — global settings that apply before any per-site config.
+The master Nginx config — global settings that apply to all five site configs.
 
 ```nginx
 user nobody;
 worker_processes auto;
 ```
 
-Run Nginx worker processes as `nobody` (a low-privilege user, not root). `auto` creates one worker per CPU core — on a 2-vCPU server, two workers.
+Run as `nobody` (low-privilege user, not root). `auto` creates one worker per CPU core.
 
 ```nginx
-events {
-  worker_connections 1024;
-}
+  set_real_ip_from 173.245.48.0/20;
+  set_real_ip_from 103.21.244.0/22;
+  ... (23 ranges total)
+  real_ip_header CF-Connecting-IP;
 ```
 
-Each worker handles up to 1024 simultaneous connections. With 2 workers: 2048 total.
+**The Cloudflare real-IP fix.** This is new compared to a standard Nginx config.
+
+When Cloudflare proxies a request, `$remote_addr` (the connecting IP Nginx sees) is a Cloudflare edge server IP, not the visitor's real IP. This matters because:
+- The API uses `$remote_addr` for rate limiting — if all traffic looks like one IP, one visitor could accidentally exhaust the rate limit for everyone.
+- Access logs would show Cloudflare IPs instead of visitor IPs, making debugging impossible.
+
+`set_real_ip_from` tells Nginx: "if a request comes from one of these IP ranges, trust the `CF-Connecting-IP` header it added and use that as `$remote_addr` instead." The 23 ranges listed are all of Cloudflare's published IPv4 and IPv6 address ranges. `real_ip_header CF-Connecting-IP` names the header to read the real IP from.
+
+After these lines, `$remote_addr` throughout the rest of Nginx (and in the Express app via `X-Real-IP`) is the actual visitor's IP.
 
 ```nginx
-http {
-  include /etc/nginx/mime.types;
-  default_type application/octet-stream;
-```
-
-`mime.types` maps file extensions to Content-Type headers. Without it, Nginx sends everything as a binary download and browsers refuse to run JavaScript or apply CSS.
-
-```nginx
-  log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                  '$status $body_bytes_sent "$http_referer" '
-                  '"$http_user_agent" "$http_x_forwarded_for"';
-
+  log_format main '$remote_addr ...';
   access_log /var/log/nginx/access.log main;
 ```
 
-Defines a log format and applies it. Every request produces one line:
-`123.45.67.89 - - [14/Nov/2026] "GET /api/products HTTP/1.1" 200 1452 "-" "Mozilla/5.0..."`
-
-This is how you debug problems and see what people are requesting.
-
-```nginx
-  sendfile on;
-  tcp_nopush on;
-  keepalive_timeout 65;
-```
-
-Performance settings. `sendfile` lets the OS transfer files from disk to network without an extra memory copy — faster for static files. `tcp_nopush` batches TCP packets. `keepalive_timeout 65` keeps connections open 65 seconds so the browser reuses them for multiple requests.
+Access log format. With the real-IP fix above, `$remote_addr` now logs real visitor IPs.
 
 ```nginx
   gzip on;
   gzip_types text/plain text/css application/json application/javascript ...;
-```
-
-Compress responses before sending. A 100 KB JavaScript file typically compresses to ~30 KB — pages load roughly 3× faster on slow connections.
-
-```nginx
   client_max_body_size 20m;
 ```
 
-Maximum request body size. This matters for the admin panel's photo upload — without it, Nginx would reject uploads larger than the default 1 MB.
+Compress responses (a 100 KB JS file compresses to ~30 KB). Allow up to 20 MB request bodies for photo uploads in the admin panel.
 
 ```nginx
   include /etc/nginx/conf.d/*.conf;
 ```
 
-Load all `.conf` files from that folder. That's where `api.conf`, `storefront.conf`, and `admin.conf` live.
+Load all `.conf` files from that folder — `api.conf`, `storefront.conf`, `admin.conf`.
 
 ---
 
-### `nginx/sites/api.conf` (and storefront + admin follow the same pattern)
+### `nginx/sites/api.conf` (storefront + admin follow the same pattern)
 
-Each site has two `server` blocks.
+Each domain has two `server` blocks.
 
----
-
-#### Block 1 — HTTP (port 80)
+**Block 1 — HTTP (port 80)**
 
 ```nginx
 server {
   listen 80;
   server_name api.coovi.com;
-```
 
-`server_name` is how Nginx tells domains apart. All three `.conf` files listen on port 80, but each has a different `server_name`. Nginx picks the right block by matching the domain in the incoming request.
-
-```nginx
   location /.well-known/acme-challenge/ {
     root /var/www/certbot;
   }
-```
 
-This is for **Let's Encrypt domain verification**. When you request an SSL certificate, Let's Encrypt verifies you control the domain by placing a temporary file at this path and fetching it over HTTP. `root /var/www/certbot` points to the shared volume where Certbot wrote that file. Without this exception, the HTTP→HTTPS redirect below would intercept the verification request and Let's Encrypt would fail.
-
-```nginx
   location / {
     return 301 https://$host$request_uri;
   }
+}
 ```
 
-Redirect everything else to HTTPS. 301 is a permanent redirect — browsers and search engines remember it. `$host` is the domain, `$request_uri` is the path and query string. So `http://api.coovi.com/api/products?limit=10` becomes `https://api.coovi.com/api/products?limit=10`.
+`server_name` is how Nginx picks the right block — all three `.conf` files listen on port 80 but each has a different domain. The `/.well-known/acme-challenge/` block is for Let's Encrypt's domain verification step (see ssl-issue.sh). Everything else redirects to HTTPS.
 
----
-
-#### Block 2 — HTTPS (port 443)
-
-```nginx
-server {
-  listen 443 ssl;
-  http2 on;
-  server_name api.coovi.com;
-```
-
-`listen 443 ssl` accepts encrypted HTTPS connections. `http2 on` enables HTTP/2 — a faster protocol that can send multiple requests over one connection simultaneously.
+**Block 2 — HTTPS (port 443)**
 
 ```nginx
   ssl_certificate     /etc/letsencrypt/live/api.coovi.com/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/api.coovi.com/privkey.pem;
   ssl_protocols       TLSv1.2 TLSv1.3;
-  ssl_prefer_server_ciphers on;
 ```
 
-`fullchain.pem` is the SSL certificate (proves this server is really `api.coovi.com`). `privkey.pem` is the private key (used for encryption). These files are written by Let's Encrypt/Certbot into the shared volume.
-
-`TLSv1.2 TLSv1.3` only allows modern encryption — TLS 1.0 and 1.1 are outdated and have known vulnerabilities.
+The SSL certificate and key files written by Let's Encrypt. Only TLS 1.2 and 1.3 — older versions have known vulnerabilities.
 
 ```nginx
   location / {
-    proxy_pass http://coovi_api:5000;
-```
-
-**This is the reverse proxy.** All HTTPS requests to `api.coovi.com` are forwarded to `http://coovi_api:5000` — the API container. `coovi_api` is the container name, Docker resolves it to the container's private IP on the `web` network.
-
-```nginx
-    proxy_http_version 1.1;
-    proxy_set_header   Upgrade $http_upgrade;
-    proxy_set_header   Connection 'upgrade';
-```
-
-These three lines enable WebSocket support — in case the API ever uses WebSockets (long-lived real-time connections), these headers allow the protocol upgrade.
-
-```nginx
-    proxy_set_header   Host $host;
+    proxy_pass         http://coovi_api:5000;
     proxy_set_header   X-Real-IP $remote_addr;
     proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header   X-Forwarded-Proto $scheme;
+  }
 ```
 
-When Nginx forwards requests, it adds these headers. Without them, the API would see every single request coming from Nginx's internal IP (`172.x.x.x`) instead of the visitor's real IP.
-
-| Header | What it carries |
-|--------|-----------------|
-| `Host` | The original domain (`api.coovi.com`) |
-| `X-Real-IP` | The visitor's real IP address |
-| `X-Forwarded-For` | Full chain of IPs if there are multiple proxies |
-| `X-Forwarded-Proto` | Whether the original request was `http` or `https` |
-
-This is why `TRUST_PROXY=1` is in the API's production env — it tells Express to read these forwarded headers from Nginx.
-
-**storefront.conf** has an extra server block to redirect `www.coovi.com` → `coovi.com`. This is called canonicalisation — it ensures all traffic and search engine ranking goes to one URL, not split across two.
-
-**admin.conf** doesn't have the WebSocket headers because the admin panel is static files — no long-lived connections needed.
+**The reverse proxy.** Forwards all HTTPS traffic to `http://coovi_api:5000`. `coovi_api` is the Docker container name — Docker resolves it to the container's private IP. The `proxy_set_header` lines forward the visitor's real IP (already restored by the Cloudflare real-IP fix) and whether the original request was HTTP or HTTPS. This is what `TRUST_PROXY=1` in the API's env refers to.
 
 ---
 
-### `coovi-storefront/next.config.ts` — the one line we changed
+### GitHub Actions workflows (`.github/workflows/deploy.yml`)
+
+Each of the three app repos has a `deploy.yml`. They all follow the same four-step structure.
+
+---
+
+#### Trigger and concurrency
+
+```yaml
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: true
+```
+
+Runs only when code is pushed to `master` — not on pull requests. `concurrency` ensures if two pushes happen close together, the second one cancels the first mid-flight instead of two deploys running simultaneously and potentially corrupting the running containers.
+
+---
+
+#### Permissions
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+```
+
+`packages: write` grants the workflow permission to push to `ghcr.io` under your GitHub account. Without it, the push step would fail with a 403. `contents: read` is the minimum to check out the code. No other permissions are granted — following least-privilege.
+
+---
+
+#### Step 1 — Checkout
+
+```yaml
+- uses: actions/checkout@v4
+```
+
+Clones the repository onto the runner. Everything after this can read the source files.
+
+---
+
+#### Step 2 — Log in to GHCR
+
+```yaml
+- uses: docker/login-action@v3
+  with:
+    registry: ghcr.io
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Authenticates with GitHub Container Registry. `github.actor` is the GitHub username that triggered the push. `secrets.GITHUB_TOKEN` is a temporary token GitHub automatically creates for each workflow run — no manual setup needed. It expires when the run ends.
+
+---
+
+#### Step 3 — Set up Docker Buildx
+
+```yaml
+- uses: docker/setup-buildx-action@v3
+```
+
+Installs BuildKit, the modern Docker build engine. Required for the registry layer cache to work. BuildKit can also build for multiple CPU architectures simultaneously, though we only target `linux/amd64` here.
+
+---
+
+#### Step 4 — Build and push image
+
+```yaml
+- uses: docker/build-push-action@v6
+  with:
+    context: .
+    push: true
+    tags: ghcr.io/asad-404/coovi-api:latest
+    cache-from: type=registry,ref=ghcr.io/asad-404/coovi-api:buildcache
+    cache-to:   type=registry,ref=ghcr.io/asad-404/coovi-api:buildcache,mode=max
+```
+
+`context: .` means use the entire repo as the Docker build context (where `COPY` looks for files). `push: true` pushes to GHCR after a successful build. `tags` is the image name and tag — `:latest` is the standard name for the most recent version.
+
+`cache-from` and `cache-to` store Docker layer cache in GHCR. Without this, every build re-downloads all packages and re-compiles everything from scratch. With it, unchanged layers are skipped. A fresh build takes ~3 minutes; a cached build (only source files changed, `package.json` unchanged) takes ~30 seconds.
+
+---
+
+#### Storefront and admin — build-args
+
+The storefront and admin workflows add `build-args`:
+
+```yaml
+# storefront
+build-args: |
+  DOCKER_BUILD=true
+  NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+  NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}
+  NEXT_PUBLIC_WHATSAPP_NUMBER=${{ secrets.NEXT_PUBLIC_WHATSAPP_NUMBER }}
+
+# admin
+build-args: |
+  VITE_API_URL=${{ secrets.VITE_API_URL }}
+```
+
+`${{ secrets.NEXT_PUBLIC_API_URL }}` reads a secret from GitHub → Repository Settings → Secrets and variables → Actions. The secret is encrypted, never shown in logs, and only exposed to workflows. It's passed to the Docker build as an `ARG` (declared in the Dockerfile), which becomes an `ENV` so `next build` / `vite build` can read it.
+
+**Why GitHub Secrets and not `.env.production` on the server?** Because these variables are baked into the JavaScript bundle at build time. By the time the container is running, the bundle is already compiled — there's nothing to read from `.env.production`. The only moment they can be injected is during `docker build`.
+
+---
+
+#### Step 5 — SSH deploy
+
+```yaml
+- uses: appleboy/ssh-action@v1
+  with:
+    host:     ${{ secrets.VPS_HOST }}
+    username: deploy
+    key:      ${{ secrets.VPS_SSH_KEY }}
+    script: |
+      /home/deploy/coovi/scripts/deploy.sh api
+```
+
+SSHes into the Lightsail server and runs the deploy script. `VPS_HOST` is the server's public IPv4. `VPS_SSH_KEY` is the private key for the `deploy` user (the matching public key is in `~/.ssh/authorized_keys` on the server). The connection is encrypted — nobody between GitHub and the server can read the key.
+
+---
+
+### `scripts/deploy.sh`
+
+```bash
+COMPOSE="docker compose -f $ROOT/docker-compose.yml"
+
+pull_restart() {
+  $COMPOSE pull "$1"
+  $COMPOSE up -d --no-deps "$1"
+}
+```
+
+Previously this script ran `docker compose build` (compiled on the server). Now it runs `docker compose pull` — downloads the pre-built image from GHCR. The `pull` command only downloads if the image has changed; it's fast when nothing changed.
+
+`up -d --no-deps "$1"` starts the named service in the background without restarting the other services it depends on. If you're deploying only the API, MongoDB and Nginx stay running.
+
+```bash
+docker image prune -f
+```
+
+Each `pull` downloads a new image layer. The old layers become "dangling" — not used by any container. This deletes them so old images don't fill the 60 GB disk over time.
+
+---
+
+### `scripts/backup.sh`
+
+```bash
+source /home/deploy/coovi/.env.production
+```
+
+`source` reads a file and executes it as shell code, importing its variable definitions. After this line, `$MONGO_USER` and `$MONGO_PASS` are available as shell variables.
+
+```bash
+docker exec coovi_mongo mongodump \
+  --archive --gzip > "$FILE"
+```
+
+`docker exec` runs a command inside the already-running container. `mongodump --archive --gzip` exports the entire database as a single compressed binary stream, redirected to a file on the host disk.
+
+```bash
+find "$BACKUP_DIR" -name "mongo_*.gz" -mtime +14 -delete
+```
+
+Delete backups older than 14 days. Without this, backups accumulate and eventually fill the disk.
+
+---
+
+### `scripts/ssl-issue.sh`
+
+```bash
+docker run --rm \
+  -v "$ROOT/certbot_certs:/etc/letsencrypt" \
+  -v "$ROOT/certbot_www:/var/www/certbot" \
+  certbot/certbot certonly --webroot ...
+```
+
+Runs the official Certbot container. `--rm` deletes the container when done. The two `-v` flags mount the same named volumes Nginx uses — Certbot writes certs there, Nginx reads them from the same location. `--webroot` verification works by writing a temporary file to `/var/www/certbot/` and Let's Encrypt fetches it over HTTP (this is why the Nginx HTTP block has the `/.well-known/acme-challenge/` route).
+
+> **Cloudflare note:** Cloudflare must be in "DNS only" (grey cloud, not orange) while running this script, or the HTTP challenge traffic won't reach your server. Switch back to Proxied (orange) after the certs are issued.
+
+---
+
+### `coovi-storefront/next.config.ts` — the two changes
+
+**Change 1 — standalone output:**
 
 ```typescript
 const isDockerBuild = process.env.DOCKER_BUILD === "true";
@@ -642,273 +759,84 @@ const nextConfig: NextConfig = {
   ...(isDockerBuild && { output: "standalone" }),
 ```
 
-`process.env.DOCKER_BUILD` reads the environment variable set by the Dockerfile.
+`...(condition && { key: value })` is a JavaScript spread trick: if `isDockerBuild` is false, spreading `false` into an object does nothing; if true, it adds `output: "standalone"` to the config. Vercel builds never set `DOCKER_BUILD`, so Vercel is completely unaffected.
 
-`...(condition && { key: value })` is a JavaScript trick:
-- If `isDockerBuild` is `false`: `false && { output: "standalone" }` → `false` → spreading `false` into an object does nothing. Config is unchanged.
-- If `isDockerBuild` is `true`: `true && { output: "standalone" }` → `{ output: "standalone" }` → spreads into the config object as if you wrote `output: "standalone"` directly.
+**Change 2 — image optimisation off:**
 
-Result: Vercel builds are unaffected. Docker builds get the standalone output.
-
----
-
-### `.dockerignore` files
-
-Same concept as `.gitignore` but for `COPY` commands inside a Dockerfile.
-
-```
-node_modules
+```typescript
+  images: {
+    unoptimized: true,
+    remotePatterns: [ ... ]
+  }
 ```
 
-Never copy `node_modules` from your Windows development machine into the image. The Dockerfile installs them fresh inside the container. If you copied them, they'd contain Windows binaries that won't run on Linux.
-
-```
-.env
-.env.*
-!.env.example
-!.env.production.example
-```
-
-**Critical.** If `.env` got copied into the image, your secrets — database password, JWT secret — would be baked in and readable by anyone who pulls the image. The `!` prefix means "except this file" — the example templates are safe because they contain no real values.
-
-```
-dist
-```
-
-Don't copy your locally-compiled output. The Dockerfile compiles fresh inside the container for the target Linux architecture.
-
-```
-.git
-coverage
-*.log
-```
-
-No need for Git history, test coverage reports, or log files in a production image. Skipping them keeps images smaller.
-
----
-
-### `scripts/deploy.sh`
-
-```bash
-#!/bin/bash
-```
-
-The **shebang line**. Every shell script starts with this. It tells the OS to run this file with Bash (the shell). Without it, the OS doesn't know how to interpret the file.
-
-```bash
-set -e
-```
-
-If any command fails (exits with error code), **stop the script immediately**. Without this, the script would continue even after a build failure — potentially restarting a broken container while the old working one is already stopped.
-
-```bash
-SERVICE=${1:-all}
-```
-
-`$1` is the first argument you pass when running the script. `./scripts/deploy.sh api` → `$1` is `api`. `:-all` is a default — if you run `./scripts/deploy.sh` with no argument, `SERVICE` becomes `all`.
-
-```bash
-ROOT="/home/deploy/coovi"
-```
-
-A variable for the project path. Used throughout the script so you only change it in one place if the path ever moves.
-
-```bash
-pull() {
-  git -C "$ROOT/$1" pull origin main
-}
-```
-
-A reusable function. `git -C path` runs Git in a specific directory without having to `cd` there. This pulls the latest code from GitHub.
-
-```bash
-rebuild() {
-  docker compose -f "$ROOT/docker-compose.yml" build "$1"
-  docker compose -f "$ROOT/docker-compose.yml" up -d --no-deps "$1"
-}
-```
-
-`build "$1"` rebuilds the image for that one service only.
-`up -d` starts it in the background (`-d` = detached — the command returns immediately).
-`--no-deps` means "don't restart the other services it depends on." If you're only deploying the API, MongoDB and Nginx should not restart.
-
-```bash
-case $SERVICE in
-  api)        pull coovi-api;        rebuild coovi-api        ;;
-  storefront) pull coovi-storefront; rebuild coovi-storefront ;;
-  admin)      pull coovi-admin;      rebuild coovi-admin      ;;
-  all)
-    pull coovi-api; pull coovi-storefront; pull coovi-admin
-    docker compose -f "$ROOT/docker-compose.yml" build
-    docker compose -f "$ROOT/docker-compose.yml" up -d
-    ;;
-  *)
-    echo "Usage: $0 api | storefront | admin | all"
-    exit 1
-    ;;
-esac
-```
-
-`case` is Bash's switch statement. The `*` case is the fallback — if you type an unknown service name, it prints usage and exits with code 1 (error code, signals failure).
-
-```bash
-docker image prune -f
-```
-
-After every deploy, old image layers accumulate on disk. Each rebuild creates new layers and the old ones become "dangling" — not used by any container. This deletes them. `-f` means "don't ask for confirmation." Left unchecked over months, dangling images can fill the disk.
-
----
-
-### `scripts/backup.sh`
-
-```bash
-DATE=$(date +%Y-%m-%d_%H-%M)
-FILE="$BACKUP_DIR/mongo_$DATE.gz"
-```
-
-`$(...)` runs a command and captures its output as a string. `date +%Y-%m-%d_%H-%M` outputs something like `2026-11-14_02-00`. The backup file will be named `mongo_2026-11-14_02-00.gz`.
-
-```bash
-source /home/deploy/coovi/.env.production
-```
-
-`source` reads a file and runs it as shell code. After this line, `$MONGO_USER` and `$MONGO_PASS` are available as shell variables — read from the production env file, never hardcoded in the script.
-
-```bash
-docker exec coovi_mongo mongodump \
-  --username "$MONGO_USER" \
-  --password "$MONGO_PASS" \
-  --authenticationDatabase admin \
-  --db coovi \
-  --archive \
-  --gzip > "$FILE"
-```
-
-`docker exec coovi_mongo` runs a command inside the already-running `coovi_mongo` container. `mongodump` is MongoDB's official backup tool — it exports the entire database. `--archive` outputs one single binary stream instead of many files. `--gzip` compresses it. `> "$FILE"` redirects the output stream to a file on the host machine's disk.
-
-```bash
-find "$BACKUP_DIR" -name "mongo_*.gz" -mtime +14 -delete
-```
-
-Delete old backups. `-name "mongo_*.gz"` matches backup files. `-mtime +14` matches files older than 14 days. `-delete` deletes them. Without this, backups accumulate forever and eventually fill the disk.
-
----
-
-### `scripts/ssl-issue.sh`
-
-```bash
-EMAIL=${1:?"Usage: $0 <email>"}
-```
-
-`?` after the colon means "this argument is **required** — if missing, print this message and stop." Different from `:-` which provides a default.
-
-```bash
-certbot_args=(
-  --webroot
-  -w /var/www/certbot
-  --email "$EMAIL"
-  --agree-tos
-  --no-eff-email
-  --non-interactive
-)
-```
-
-A Bash array storing arguments reused for each domain. `--webroot` is the verification method — Certbot writes a temporary file to `/var/www/certbot/` and Let's Encrypt's servers fetch it over HTTP to verify you own the domain. This is why the Nginx config has the `/.well-known/acme-challenge/` block.
-
-```bash
-docker run --rm \
-  -v "$ROOT/certbot_certs:/etc/letsencrypt" \
-  -v "$ROOT/certbot_www:/var/www/certbot" \
-  certbot/certbot certonly "${certbot_args[@]}" \
-  -d coovi.com -d www.coovi.com
-```
-
-Runs the official Certbot Docker container. `--rm` deletes the container as soon as it finishes. The two `-v` flags mount the same named volumes that Nginx uses — so when Certbot writes the cert files, Nginx can immediately read them. `certonly` just gets the cert without touching any server config. `-d` specifies the domains to cover.
-
-```bash
-( crontab -l 2>/dev/null | grep -v "certbot renew"; echo "$CRON_LINE" ) | crontab -
-```
-
-This installs the auto-renew cron job. Breaking it down step by step:
-
-| Part | What it does |
-|------|--------------|
-| `crontab -l` | List existing cron jobs |
-| `2>/dev/null` | Discard the error if no cron jobs exist yet |
-| `grep -v "certbot renew"` | Remove any existing certbot line (prevents duplicates if script runs twice) |
-| `echo "$CRON_LINE"` | Add the new renewal command |
-| `\| crontab -` | Feed the whole thing back to `crontab -` which replaces the cron file |
-
-The cron line itself (`0 3 * * *`) means "run at 3:00 AM every day." Let's Encrypt certs expire after 90 days; this renews them automatically when they're 30 days from expiry.
+By default, Next.js resizes and converts images on the fly using server-side CPU when a browser requests an `<Image>` component. On a 2-vCPU Lightsail server shared by five containers, that's expensive. Setting `unoptimized: true` tells Next.js to serve images as-is without processing them. The trade-off is intentional: **Cloudinary** handles all image optimisation instead (`f_auto`, `q_auto`, `w_400`, `w_1000` transforms), serving already-optimised images from its own CDN. The Lightsail container never touches image data.
 
 ---
 
 ### `.env.production.example` files
 
-These are **templates**, not real config. The real `.env.production` files are created manually on the server and never committed to Git.
+Templates — never committed with real values. The real `.env.production` files are created manually on the server.
 
-**Root `.env.production.example`** — the two variables Docker Compose needs to create the MongoDB root user, fed in as `${MONGO_USER}` and `${MONGO_PASS}`.
+**Root `.env.production.example`** — just `MONGO_USER` and `MONGO_PASS` for the Docker Compose `${...}` substitutions.
 
-**`coovi-api/.env.production.example`** — the most detailed one. Key entries:
+**`coovi-api/.env.production.example`** — key entries:
 
 ```
 MONGODB_URI=mongodb://coovi_user:CHANGE_ME@coovi_mongo:27017/coovi?authSource=admin
 ```
 
-`coovi_mongo` is the container name — Docker resolves it to the container's internal IP. `authSource=admin` means authenticate against the `admin` database (where the root user was created by `MONGO_INITDB_ROOT_USERNAME`).
+`coovi_mongo` resolves to the MongoDB container's internal IP via Docker DNS. `authSource=admin` authenticates against the admin database where the root user was created.
 
 ```
 TRUST_PROXY=1
 ```
 
-Tells Express to trust the `X-Forwarded-For` and `X-Real-IP` headers forwarded by Nginx. Without this, rate limiting would use Nginx's internal IP for all requests — meaning everyone shares the same rate limit bucket and one person's requests could block everyone else.
-
-```
-NODE_ENV=production
-```
-
-Switches Express into production mode: hides detailed error stack traces from API responses (so attackers can't see your folder structure), enables response caching headers, and activates production optimisations in many packages.
+Tells Express to trust forwarded headers from Nginx. Without this, rate limiting uses Nginx's internal IP for all requests — everyone shares the same rate limit bucket. With `TRUST_PROXY=1`, Express reads the real IP that Nginx (already corrected by the Cloudflare real-IP fix) forwarded.
 
 ---
 
 ## How Everything Connects — Tracing One Request
 
-A customer visits `coovi.com/saree`:
+A customer in Dhaka visits `coovi.com/saree`:
 
-1. **DNS** resolves `coovi.com` to your VPS IP address.
-2. **Browser** sends `GET /saree HTTP/1.1` to port 80 of that IP.
-3. **Nginx** (port 80, `storefront.conf` block 1) sees the request is for `coovi.com`, checks it's not a Let's Encrypt challenge, and returns a 301 redirect to `https://coovi.com/saree`.
-4. **Browser** follows the redirect to port 443.
-5. **Nginx** (port 443, `storefront.conf` block 2) decrypts the SSL connection using the Let's Encrypt certificate, then forwards the plain HTTP request to `http://coovi_storefront:3000/saree` on the internal `web` Docker network. It adds `X-Real-IP` and `X-Forwarded-Proto: https` headers.
-6. **Storefront container** (Next.js `server.js`) receives the request, renders the saree listing page (possibly fetching product data from `https://api.coovi.com/api/products`), and sends back HTML.
-7. **Nginx** forwards the HTML back to the browser.
-8. **Browser** renders the page. The HTML references `/saree.css` and `/_next/static/chunks/page.js` — the browser fetches those too, all going through Nginx → storefront container.
+1. **DNS** resolves `coovi.com` to a Cloudflare edge server IP (not the VPS IP — it's hidden).
+2. **Cloudflare (Dhaka edge)** receives the request. If the page is cached, it serves it immediately from Dhaka — no trip to Singapore. If not cached, it forwards to the VPS.
+3. **Nginx** (port 443, `storefront.conf`) receives the request with `CF-Connecting-IP: <real visitor IP>`. The real-IP fix restores `$remote_addr`. Nginx forwards to `http://coovi_storefront:3000/saree`.
+4. **Storefront container** renders the page. Product images are `<img>` tags pointing at `res.cloudinary.com` — the browser fetches them from Cloudinary's CDN, not the Lightsail server.
+5. **Nginx** forwards the HTML back through Cloudflare back to the browser.
+6. **Cloudflare** caches the response for future visitors.
 
-The admin making a login request to `admin.coovi.com` follows the same path, but Nginx routes it to the admin container instead. The API call to `api.coovi.com/api/login` goes to the API container, which connects to MongoDB on the `internal` network.
+When the customer places an order, the storefront calls `https://api.coovi.com/api/orders`. That goes: Cloudflare → Nginx → API container → MongoDB (internal network). MongoDB is never reachable from any other path.
+
+When you push code to `master` in `coovi-api`, GitHub Actions builds the image on GitHub's servers, pushes it to GHCR, then SSHes into the VPS and runs `docker compose pull coovi-api && docker compose up -d --no-deps coovi-api`. The API container is replaced in a few seconds with no downtime for MongoDB or Nginx.
 
 ---
 
 ## Summary Table
 
-| File | Lives in | What it does |
-|------|----------|--------------|
-| `docker-compose.yml` | root | Defines and runs all 5 containers together |
-| `nginx/nginx.conf` | root | Global Nginx settings (logging, compression, mime types) |
-| `nginx/sites/api.conf` | root | Routes `api.coovi.com` to the API container |
-| `nginx/sites/storefront.conf` | root | Routes `coovi.com` to the storefront container |
-| `nginx/sites/admin.conf` | root | Routes `admin.coovi.com` to the admin container |
-| `scripts/deploy.sh` | root | Pulls latest code + rebuilds + restarts a service |
-| `scripts/backup.sh` | root | Dumps MongoDB to a compressed file, keeps 14 days |
-| `scripts/ssl-issue.sh` | root | Gets SSL certs from Let's Encrypt, sets up auto-renew |
-| `.env.production.example` | root | Template for MongoDB credentials |
-| `coovi-api/Dockerfile` | coovi-api | Builds the API into a container image |
-| `coovi-api/.dockerignore` | coovi-api | Prevents secrets and junk entering the image |
-| `coovi-api/.env.production.example` | coovi-api | Template for all API production variables |
-| `coovi-storefront/Dockerfile` | coovi-storefront | Builds the Next.js storefront (standalone mode) |
-| `coovi-storefront/.dockerignore` | coovi-storefront | Same as API |
-| `coovi-storefront/.env.production.example` | coovi-storefront | Template for storefront production variables |
-| `coovi-storefront/next.config.ts` | coovi-storefront | Adds `output:'standalone'` when building in Docker |
-| `coovi-admin/Dockerfile` | coovi-admin | Builds the admin panel into a static Nginx image |
-| `coovi-admin/.dockerignore` | coovi-admin | Same as API |
-| `coovi-admin/nginx-spa.conf` | coovi-admin | Config for the Nginx inside the admin container |
-| `coovi-admin/.env.production.example` | coovi-admin | Template for admin production variables |
+| File | Repo | What it does |
+|------|------|--------------|
+| `docker-compose.yml` | coovi-docs | All 5 containers, mem_limits, GHCR images, networks, volumes |
+| `nginx/nginx.conf` | coovi-docs | Global settings + Cloudflare real-IP restoration |
+| `nginx/sites/api.conf` | coovi-docs | Routes `api.coovi.com` → API:5000 |
+| `nginx/sites/storefront.conf` | coovi-docs | Routes `coovi.com`/`www` → storefront:3000 |
+| `nginx/sites/admin.conf` | coovi-docs | Routes `admin.coovi.com` → admin:80 |
+| `scripts/deploy.sh` | coovi-docs | `docker compose pull` + restart one service or all |
+| `scripts/backup.sh` | coovi-docs | Nightly mongodump, 14-day retention |
+| `scripts/ssl-issue.sh` | coovi-docs | Let's Encrypt cert issue + auto-renew cron |
+| `.env.production.example` | coovi-docs | Template for Mongo root credentials |
+| `Dockerfile` | coovi-api | Multi-stage: TS compile → prod-only Node image |
+| `.dockerignore` | coovi-api | Keeps secrets and junk out of image |
+| `.env.production.example` | coovi-api | Template for all API production variables |
+| `.github/workflows/deploy.yml` | coovi-api | Build → GHCR push → SSH deploy on master push |
+| `Dockerfile` | coovi-storefront | Multi-stage: Next standalone build → slim Node image |
+| `.dockerignore` | coovi-storefront | Same |
+| `.env.production.example` | coovi-storefront | Template for storefront runtime variables |
+| `.github/workflows/deploy.yml` | coovi-storefront | Build with NEXT_PUBLIC_* build-args → GHCR → SSH |
+| `next.config.ts` | coovi-storefront | `output:'standalone'` + `images.unoptimized:true` |
+| `Dockerfile` | coovi-admin | Multi-stage: Vite build → nginx:alpine static image |
+| `.dockerignore` | coovi-admin | Same |
+| `.env.production.example` | coovi-admin | Template (VITE_* vars go to GitHub Secrets, not here) |
+| `nginx-spa.conf` | coovi-admin | SPA fallback + 1-year asset cache inside admin container |
+| `.github/workflows/deploy.yml` | coovi-admin | Build with VITE_API_URL build-arg → GHCR → SSH |
