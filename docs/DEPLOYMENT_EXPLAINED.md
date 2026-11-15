@@ -16,7 +16,7 @@ Right now COOVI runs across three separate cloud services:
 | Admin panel (React) | Vercel |
 | Database (MongoDB) | Atlas |
 
-That works, but every service has free-tier limits, sleeps after inactivity, and you pay three separate bills. The new setup moves everything to a single server, with one important addition in the middle:
+That works, but every service has free-tier limits, sleeps after inactivity, and you pay three separate bills. The new setup moves everything to a single server with Cloudflare in front:
 
 ```
 Shoppers
@@ -27,6 +27,28 @@ Shoppers
     │
  Nginx → API / Storefront / Admin / MongoDB
 ```
+
+### Key decisions explained
+
+| Decision | Why |
+|----------|-----|
+| **Lightsail Virtual Server, not Container Service** | AWS Lightsail offers a "Container Service" product, but it's **stateless** — containers are restarted from scratch on every deploy, so any data stored inside them is lost. Self-hosted MongoDB needs persistent disk storage that survives restarts. The Container Service also costs $40/mo for 2 GB RAM. The Virtual Server gives a real persistent SSD, full root access, and 3 TB of transfer for $12. |
+| **Dual-Stack ($12) over IPv6-only ($10)** | Lightsail offers a cheaper IPv6-only plan ($10), but many systems still need IPv4: GitHub Actions SSH deployments need to reach an IPv4 address, Docker pulls from `ghcr.io` resolve to IPv4, Let's Encrypt verification works over IPv4, and most third-party payment/SMS APIs only support IPv4. Paying $2 more avoids NAT64 translation workarounds. |
+| **Singapore (`ap-southeast-1`)** | Each Lightsail region has a different monthly transfer allowance. Singapore gives the full **3 TB**. Mumbai (`ap-south-1`) halves it to **1.5 TB**. Since this is a Bangladesh-focused shop, Singapore is the closest region with the full allowance. |
+| **Cloudflare in front** | Free DDoS/bot shield, a Dhaka edge cache for faster page loads in Bangladesh, and it hides the real server IP from attackers. |
+| **GitHub Actions + GHCR (no on-server builds)** | Next.js 16 builds spike past 2 GB RAM. Building on the 2 GB VPS would trigger an OOM kill (Out Of Memory — the OS kills the process). GitHub Actions builds on its own free runners and pushes the finished image to GHCR. The server only downloads. |
+| **Cloudinary for images** | Product images stored and served from Cloudinary's CDN. The Lightsail container never resizes images — `images.unoptimized: true` in `next.config.ts` offloads all image processing. |
+
+### Monthly cost
+
+| Component | Cost |
+|-----------|------|
+| AWS Lightsail 2 GB Dual-Stack | $12.00 |
+| Cloudflare Free | $0 |
+| Cloudinary Free | $0 |
+| GitHub Actions (free tier) | $0 |
+| GHCR (free for public images) | $0 |
+| **Total** | **$12.00/mo** |
 
 ---
 
@@ -91,7 +113,17 @@ This gives you three things for free:
 - **Edge caching** — static assets (CSS, JS, images) served from Dhaka instead of Singapore means faster load times for Bangladeshi visitors.
 - **Origin IP hidden** — attackers cannot find your real server IP by looking up the domain.
 
-The downside is that every request now comes from a Cloudflare IP address, not the visitor's real IP. This matters for rate limiting — if Nginx sees all traffic as one IP, everyone shares the same rate limit bucket. The Nginx config fixes this (explained in the nginx.conf section).
+**The real-IP problem:** Because every request comes from a Cloudflare IP address, Nginx and the API would see all traffic as coming from one IP. This breaks rate limiting — everyone would share the same rate limit bucket. The Nginx config fixes this with `set_real_ip_from` + `real_ip_header CF-Connecting-IP` (explained in the nginx.conf section).
+
+**Cloudflare SSL/TLS mode — Full (Strict):** You set this in Cloudflare Dashboard → SSL/TLS → Overview. Options:
+
+| Mode | What it means |
+|------|--------------|
+| Flexible | Cloudflare connects to your server over plain HTTP — insecure |
+| Full | Cloudflare connects over HTTPS but doesn't verify your cert — slightly better |
+| **Full (Strict)** | Cloudflare connects over HTTPS **and** verifies your Let's Encrypt cert — correct |
+
+Always use Full (Strict). Without it, the connection between Cloudflare and your origin is unencrypted or unverified.
 
 ---
 
@@ -115,6 +147,8 @@ GitHub Actions runner (a temporary Linux VM, free)
 ```
 
 **Why not build on the server?** Next.js 16 builds can spike past 2 GB of RAM. A `docker compose build` on the 2 GB Lightsail instance would be killed by the OS mid-build (this is called an OOM kill — Out Of Memory). Building on GitHub's runners avoids this entirely; the server only ever downloads a finished image.
+
+**Important:** The app repos are **not cloned to the server**. The server only needs the `docker-compose.yml`, `nginx/` configs, `scripts/`, and `.env.production` files from the docs repo. Images come entirely from GHCR.
 
 ---
 
@@ -149,6 +183,41 @@ This is called **defence in depth** — multiple layers of protection.
 
 ---
 
+## Concept 7 — The Two Firewalls
+
+There are **two separate firewalls** protecting the server. Both must allow a port for traffic to get through.
+
+**Firewall 1 — AWS Lightsail Console → Networking → IPv4 Firewall**
+This is Lightsail's own network-level firewall, configured from the AWS web console. It sits outside the server — traffic blocked here never even reaches Ubuntu.
+
+**Firewall 2 — `ufw` (Uncomplicated Firewall) inside Ubuntu**
+This is the OS-level firewall running inside the server itself.
+
+Both must allow ports 22 (SSH), 80 (HTTP), and 443 (HTTPS). If you open a port in `ufw` but forget to open it in the Lightsail console, traffic is still blocked. This is a common source of confusion when first setting up the server.
+
+---
+
+## Concept 8 — Swap File
+
+The server has 2 GB of physical RAM. MongoDB, two Node processes, and Nginx running simultaneously use roughly 1.8 GB. That leaves very little room for memory spikes (a surge of visitors, a background task, etc.).
+
+A **swap file** is disk space the OS uses as overflow memory. When RAM fills up, the OS moves the least-recently-used memory pages to the swap file on disk. It's much slower than RAM but prevents processes from being killed entirely.
+
+We create a 4 GB swap file on the 60 GB SSD:
+
+```bash
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+```
+
+`vm.swappiness=10` tells the OS to prefer keeping things in RAM and only use swap under real pressure (default is 60, meaning the OS starts swapping aggressively).
+
+---
+
 ## File-by-File Explanation
 
 ---
@@ -176,7 +245,7 @@ The Docker Compose file format version. 3.9 is stable and widely supported.
 
 `image: mongo:7` uses the official Mongo 7 image — no Dockerfile needed. `mem_limit: 512m` caps MongoDB at 512 MB of RAM. Without a cap, MongoDB's WiredTiger storage engine will claim as much RAM as it can find. On a 2 GB server shared by five containers, that would starve everything else.
 
-`command` overrides the default command inside the container with this argument. `--wiredTigerCacheSizeGB 0.35` tells MongoDB's storage engine to use at most 350 MB for its in-memory cache. This is what keeps it inside the 512m limit — without it, MongoDB ignores the container's memory cap and gets killed by the OS anyway.
+`command` overrides the default startup command. `--wiredTigerCacheSizeGB 0.35` tells the storage engine to use at most 350 MB for its in-memory cache. This is what keeps it inside the 512m limit — without it, MongoDB ignores the container's memory cap and gets killed by the OS anyway.
 
 ```yaml
     container_name: coovi_mongo
@@ -406,7 +475,7 @@ ENV NEXT_PUBLIC_WHATSAPP_NUMBER=$NEXT_PUBLIC_WHATSAPP_NUMBER
 
 `ARG` declares a build-time variable — it exists only during `docker build`, not at runtime. `ENV` promotes it to a real environment variable so `process.env.NEXT_PUBLIC_*` works during the build.
 
-**Why are these in the Dockerfile and not in `.env.production`?** Because `NEXT_PUBLIC_*` variables in Next.js are baked into the JavaScript bundle at build time. By the time the container is running, the bundle is already compiled — changing an env var at runtime has no effect. These values must exist when `next build` runs, which is during the Docker build step on GitHub Actions. GitHub Actions reads them from GitHub Secrets and passes them as `--build-arg`.
+**Why are these in the Dockerfile and not in `.env.production`?** Because `NEXT_PUBLIC_*` variables in Next.js are baked into the JavaScript bundle at build time. By the time the container is running, the bundle is already compiled — changing an env var at runtime has no effect. These values must exist when `next build` runs, which happens during `docker build` on GitHub Actions. GitHub Actions reads them from GitHub Secrets and passes them as `--build-arg`.
 
 The runner stage is slimmer than the API:
 
@@ -483,30 +552,18 @@ Run as `nobody` (low-privilege user, not root). `auto` creates one worker per CP
   real_ip_header CF-Connecting-IP;
 ```
 
-**The Cloudflare real-IP fix.** This is new compared to a standard Nginx config.
-
-When Cloudflare proxies a request, `$remote_addr` (the connecting IP Nginx sees) is a Cloudflare edge server IP, not the visitor's real IP. This matters because:
+**The Cloudflare real-IP fix.** When Cloudflare proxies a request, `$remote_addr` (the connecting IP Nginx sees) is a Cloudflare edge server IP, not the visitor's real IP. This matters because:
 - The API uses `$remote_addr` for rate limiting — if all traffic looks like one IP, one visitor could accidentally exhaust the rate limit for everyone.
 - Access logs would show Cloudflare IPs instead of visitor IPs, making debugging impossible.
 
-`set_real_ip_from` tells Nginx: "if a request comes from one of these IP ranges, trust the `CF-Connecting-IP` header it added and use that as `$remote_addr` instead." The 23 ranges listed are all of Cloudflare's published IPv4 and IPv6 address ranges. `real_ip_header CF-Connecting-IP` names the header to read the real IP from.
-
-After these lines, `$remote_addr` throughout the rest of Nginx (and in the Express app via `X-Real-IP`) is the actual visitor's IP.
-
-```nginx
-  log_format main '$remote_addr ...';
-  access_log /var/log/nginx/access.log main;
-```
-
-Access log format. With the real-IP fix above, `$remote_addr` now logs real visitor IPs.
+`set_real_ip_from` tells Nginx: "if a request comes from one of these IP ranges, trust the `CF-Connecting-IP` header it added and use that as `$remote_addr` instead." The 23 ranges listed are all of Cloudflare's published IPv4 and IPv6 address ranges. Update them from https://www.cloudflare.com/ips/ periodically.
 
 ```nginx
   gzip on;
-  gzip_types text/plain text/css application/json application/javascript ...;
   client_max_body_size 20m;
 ```
 
-Compress responses (a 100 KB JS file compresses to ~30 KB). Allow up to 20 MB request bodies for photo uploads in the admin panel.
+Compress responses (~3× smaller). Allow up to 20 MB request bodies for photo uploads in the admin panel.
 
 ```nginx
   include /etc/nginx/conf.d/*.conf;
@@ -537,7 +594,7 @@ server {
 }
 ```
 
-`server_name` is how Nginx picks the right block — all three `.conf` files listen on port 80 but each has a different domain. The `/.well-known/acme-challenge/` block is for Let's Encrypt's domain verification step (see ssl-issue.sh). Everything else redirects to HTTPS.
+`server_name` is how Nginx picks the right block — all three `.conf` files listen on port 80 but each has a different domain. The `/.well-known/acme-challenge/` block is for Let's Encrypt domain verification. Everything else redirects to HTTPS.
 
 **Block 2 — HTTPS (port 443)**
 
@@ -547,7 +604,7 @@ server {
   ssl_protocols       TLSv1.2 TLSv1.3;
 ```
 
-The SSL certificate and key files written by Let's Encrypt. Only TLS 1.2 and 1.3 — older versions have known vulnerabilities.
+The SSL certificate and key files. Only TLS 1.2 and 1.3 — older versions have known vulnerabilities.
 
 ```nginx
   location / {
@@ -558,13 +615,13 @@ The SSL certificate and key files written by Let's Encrypt. Only TLS 1.2 and 1.3
   }
 ```
 
-**The reverse proxy.** Forwards all HTTPS traffic to `http://coovi_api:5000`. `coovi_api` is the Docker container name — Docker resolves it to the container's private IP. The `proxy_set_header` lines forward the visitor's real IP (already restored by the Cloudflare real-IP fix) and whether the original request was HTTP or HTTPS. This is what `TRUST_PROXY=1` in the API's env refers to.
+**The reverse proxy.** Forwards all HTTPS traffic to the API container. `coovi_api` is the Docker container name — Docker resolves it to the container's private IP. The `proxy_set_header` lines forward the visitor's real IP (already restored by the Cloudflare fix) so the API's rate limiter sees real IPs. This is what `TRUST_PROXY=1` in the API's env refers to.
 
 ---
 
 ### GitHub Actions workflows (`.github/workflows/deploy.yml`)
 
-Each of the three app repos has a `deploy.yml`. They all follow the same four-step structure.
+Each of the three app repos has a `deploy.yml`. They all follow the same five-step structure.
 
 ---
 
@@ -580,7 +637,7 @@ concurrency:
   cancel-in-progress: true
 ```
 
-Runs only when code is pushed to `master` — not on pull requests. `concurrency` ensures if two pushes happen close together, the second one cancels the first mid-flight instead of two deploys running simultaneously and potentially corrupting the running containers.
+Runs only on push to `master` — not on pull requests. `concurrency` ensures if two pushes happen close together, the second cancels the first mid-flight instead of two deploys running in parallel.
 
 ---
 
@@ -592,41 +649,23 @@ permissions:
   packages: write
 ```
 
-`packages: write` grants the workflow permission to push to `ghcr.io` under your GitHub account. Without it, the push step would fail with a 403. `contents: read` is the minimum to check out the code. No other permissions are granted — following least-privilege.
+`packages: write` lets the workflow push to `ghcr.io` under your GitHub account. Without it, the push step fails with a 403. `GITHUB_TOKEN` is a temporary token GitHub creates automatically for each workflow run — no manual setup needed.
 
 ---
 
-#### Step 1 — Checkout
+#### Steps 1–3 — Checkout, GHCR login, Buildx
 
 ```yaml
 - uses: actions/checkout@v4
-```
-
-Clones the repository onto the runner. Everything after this can read the source files.
-
----
-
-#### Step 2 — Log in to GHCR
-
-```yaml
 - uses: docker/login-action@v3
   with:
     registry: ghcr.io
     username: ${{ github.actor }}
     password: ${{ secrets.GITHUB_TOKEN }}
-```
-
-Authenticates with GitHub Container Registry. `github.actor` is the GitHub username that triggered the push. `secrets.GITHUB_TOKEN` is a temporary token GitHub automatically creates for each workflow run — no manual setup needed. It expires when the run ends.
-
----
-
-#### Step 3 — Set up Docker Buildx
-
-```yaml
 - uses: docker/setup-buildx-action@v3
 ```
 
-Installs BuildKit, the modern Docker build engine. Required for the registry layer cache to work. BuildKit can also build for multiple CPU architectures simultaneously, though we only target `linux/amd64` here.
+Checks out code, logs into GHCR, and installs BuildKit (required for the registry layer cache).
 
 ---
 
@@ -642,15 +681,9 @@ Installs BuildKit, the modern Docker build engine. Required for the registry lay
     cache-to:   type=registry,ref=ghcr.io/asad-404/coovi-api:buildcache,mode=max
 ```
 
-`context: .` means use the entire repo as the Docker build context (where `COPY` looks for files). `push: true` pushes to GHCR after a successful build. `tags` is the image name and tag — `:latest` is the standard name for the most recent version.
+Builds the Docker image and pushes it to GHCR. `cache-from`/`cache-to` stores layer cache in GHCR — unchanged layers are reused. A fresh build takes ~3 minutes; a cached one (only source changed) takes ~30 seconds.
 
-`cache-from` and `cache-to` store Docker layer cache in GHCR. Without this, every build re-downloads all packages and re-compiles everything from scratch. With it, unchanged layers are skipped. A fresh build takes ~3 minutes; a cached build (only source files changed, `package.json` unchanged) takes ~30 seconds.
-
----
-
-#### Storefront and admin — build-args
-
-The storefront and admin workflows add `build-args`:
+**Storefront and admin pass additional `build-args`:**
 
 ```yaml
 # storefront
@@ -665,9 +698,7 @@ build-args: |
   VITE_API_URL=${{ secrets.VITE_API_URL }}
 ```
 
-`${{ secrets.NEXT_PUBLIC_API_URL }}` reads a secret from GitHub → Repository Settings → Secrets and variables → Actions. The secret is encrypted, never shown in logs, and only exposed to workflows. It's passed to the Docker build as an `ARG` (declared in the Dockerfile), which becomes an `ENV` so `next build` / `vite build` can read it.
-
-**Why GitHub Secrets and not `.env.production` on the server?** Because these variables are baked into the JavaScript bundle at build time. By the time the container is running, the bundle is already compiled — there's nothing to read from `.env.production`. The only moment they can be injected is during `docker build`.
+`${{ secrets.NEXT_PUBLIC_API_URL }}` reads from GitHub → Repository Settings → Secrets and variables → Actions. These are encrypted, never shown in logs, and injected into the Docker build as `ARG` values declared in the Dockerfile. This is the only moment these values can be injected — the bundle is compiled during `docker build`, so they cannot come from server env files at runtime.
 
 ---
 
@@ -683,7 +714,36 @@ build-args: |
       /home/deploy/coovi/scripts/deploy.sh api
 ```
 
-SSHes into the Lightsail server and runs the deploy script. `VPS_HOST` is the server's public IPv4. `VPS_SSH_KEY` is the private key for the `deploy` user (the matching public key is in `~/.ssh/authorized_keys` on the server). The connection is encrypted — nobody between GitHub and the server can read the key.
+SSHes into the Lightsail server and runs the deploy script. `VPS_HOST` is the server's public IPv4. `VPS_SSH_KEY` is the private key for the `deploy` user — the matching public key sits in `~/.ssh/authorized_keys` on the server.
+
+---
+
+### GitHub Secrets required
+
+Set these in each repo under **Settings → Secrets and variables → Actions**:
+
+**All three repos (`coovi-api`, `coovi-storefront`, `coovi-admin`)**
+
+| Secret | Example value | Purpose |
+|--------|--------------|---------|
+| `VPS_HOST` | `43.218.x.x` | Lightsail public IPv4 |
+| `VPS_SSH_KEY` | `-----BEGIN OPENSSH...` | Private key for the `deploy` user |
+
+**`coovi-storefront` only**
+
+| Secret | Example value | Purpose |
+|--------|--------------|---------|
+| `NEXT_PUBLIC_API_URL` | `https://api.coovi.com/api` | Baked into storefront JS bundle |
+| `NEXT_PUBLIC_SITE_URL` | `https://coovi.com` | Baked into storefront JS bundle |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | `8801712345678` | Baked into storefront JS bundle |
+
+**`coovi-admin` only**
+
+| Secret | Example value | Purpose |
+|--------|--------------|---------|
+| `VITE_API_URL` | `https://api.coovi.com/api` | Baked into admin JS bundle |
+
+> `GITHUB_TOKEN` is provided automatically — never create it manually.
 
 ---
 
@@ -698,15 +758,13 @@ pull_restart() {
 }
 ```
 
-Previously this script ran `docker compose build` (compiled on the server). Now it runs `docker compose pull` — downloads the pre-built image from GHCR. The `pull` command only downloads if the image has changed; it's fast when nothing changed.
-
-`up -d --no-deps "$1"` starts the named service in the background without restarting the other services it depends on. If you're deploying only the API, MongoDB and Nginx stay running.
+`docker compose pull` downloads the latest image from GHCR. It only downloads layers that changed — fast when nothing changed. `up -d --no-deps "$1"` restarts only the named service, leaving MongoDB and Nginx untouched.
 
 ```bash
 docker image prune -f
 ```
 
-Each `pull` downloads a new image layer. The old layers become "dangling" — not used by any container. This deletes them so old images don't fill the 60 GB disk over time.
+Each pull downloads new image layers. Old ones become "dangling" — not used by any container. This deletes them so old images don't fill the 60 GB disk over months.
 
 ---
 
@@ -716,14 +774,14 @@ Each `pull` downloads a new image layer. The old layers become "dangling" — no
 source /home/deploy/coovi/.env.production
 ```
 
-`source` reads a file and executes it as shell code, importing its variable definitions. After this line, `$MONGO_USER` and `$MONGO_PASS` are available as shell variables.
+`source` reads a file and executes it as shell code, importing its variable definitions. After this, `$MONGO_USER` and `$MONGO_PASS` are available as shell variables.
 
 ```bash
 docker exec coovi_mongo mongodump \
   --archive --gzip > "$FILE"
 ```
 
-`docker exec` runs a command inside the already-running container. `mongodump --archive --gzip` exports the entire database as a single compressed binary stream, redirected to a file on the host disk.
+`docker exec` runs a command inside the already-running container. `mongodump --archive --gzip` exports the database as a single compressed binary stream, redirected to a file on the host disk.
 
 ```bash
 find "$BACKUP_DIR" -name "mongo_*.gz" -mtime +14 -delete
@@ -742,9 +800,18 @@ docker run --rm \
   certbot/certbot certonly --webroot ...
 ```
 
-Runs the official Certbot container. `--rm` deletes the container when done. The two `-v` flags mount the same named volumes Nginx uses — Certbot writes certs there, Nginx reads them from the same location. `--webroot` verification works by writing a temporary file to `/var/www/certbot/` and Let's Encrypt fetches it over HTTP (this is why the Nginx HTTP block has the `/.well-known/acme-challenge/` route).
+Runs the official Certbot container. `--rm` deletes it when done. The two `-v` flags mount the same named volumes Nginx uses — Certbot writes certs there, Nginx reads them.
 
-> **Cloudflare note:** Cloudflare must be in "DNS only" (grey cloud, not orange) while running this script, or the HTTP challenge traffic won't reach your server. Switch back to Proxied (orange) after the certs are issued.
+**Two SSL certificate options:**
+
+| Option | How | Trusted by |
+|--------|-----|------------|
+| **Let's Encrypt (recommended)** | Run `scripts/ssl-issue.sh` after temporarily switching Cloudflare to DNS-only (grey cloud). Switch back to Proxied after. | All browsers |
+| **Cloudflare Origin CA** | Generate in Cloudflare Dashboard → SSL/TLS → Origin Server. Install on Nginx. | Only Cloudflare (fine because Cloudflare is in front) |
+
+The Let's Encrypt cert auto-renews via cron. The Cloudflare Origin CA cert is valid for 15 years.
+
+> **Cloudflare note for Let's Encrypt:** The HTTP-01 challenge needs a direct HTTP connection to your server. Temporarily set all four DNS records to "DNS only" (grey cloud) in Cloudflare, run the script, then switch back to Proxied (orange cloud).
 
 ---
 
@@ -754,23 +821,20 @@ Runs the official Certbot container. `--rm` deletes the container when done. The
 
 ```typescript
 const isDockerBuild = process.env.DOCKER_BUILD === "true";
-
 const nextConfig: NextConfig = {
   ...(isDockerBuild && { output: "standalone" }),
 ```
 
-`...(condition && { key: value })` is a JavaScript spread trick: if `isDockerBuild` is false, spreading `false` into an object does nothing; if true, it adds `output: "standalone"` to the config. Vercel builds never set `DOCKER_BUILD`, so Vercel is completely unaffected.
+`...(condition && { key: value })` is a JavaScript spread trick: if false, spreading `false` does nothing; if true, it adds `output: "standalone"`. Vercel builds never set `DOCKER_BUILD` so Vercel is unaffected.
 
 **Change 2 — image optimisation off:**
 
 ```typescript
   images: {
     unoptimized: true,
-    remotePatterns: [ ... ]
-  }
 ```
 
-By default, Next.js resizes and converts images on the fly using server-side CPU when a browser requests an `<Image>` component. On a 2-vCPU Lightsail server shared by five containers, that's expensive. Setting `unoptimized: true` tells Next.js to serve images as-is without processing them. The trade-off is intentional: **Cloudinary** handles all image optimisation instead (`f_auto`, `q_auto`, `w_400`, `w_1000` transforms), serving already-optimised images from its own CDN. The Lightsail container never touches image data.
+By default, Next.js resizes images on the fly using server CPU. On a 2 vCPU shared server, that's expensive. `unoptimized: true` disables it. Cloudinary handles all optimisation instead (`f_auto`, `q_auto`, width presets), serving already-processed images from its CDN. The Lightsail server never touches image data.
 
 ---
 
@@ -792,7 +856,11 @@ MONGODB_URI=mongodb://coovi_user:CHANGE_ME@coovi_mongo:27017/coovi?authSource=ad
 TRUST_PROXY=1
 ```
 
-Tells Express to trust forwarded headers from Nginx. Without this, rate limiting uses Nginx's internal IP for all requests — everyone shares the same rate limit bucket. With `TRUST_PROXY=1`, Express reads the real IP that Nginx (already corrected by the Cloudflare real-IP fix) forwarded.
+Tells Express to trust forwarded headers from Nginx. Without this, rate limiting uses Nginx's internal IP for all requests — everyone shares the same rate limit bucket.
+
+**`coovi-storefront/.env.production.example`** — only contains `STOREFRONT_API_KEY` and `NODE_ENV`. The `NEXT_PUBLIC_*` variables are NOT here — they're GitHub Secrets baked into the image at build time.
+
+**`coovi-admin/.env.production.example`** — empty in practice. `VITE_API_URL` is a GitHub Secret baked into the image at build time, not a runtime env var.
 
 ---
 
@@ -804,7 +872,7 @@ A customer in Dhaka visits `coovi.com/saree`:
 2. **Cloudflare (Dhaka edge)** receives the request. If the page is cached, it serves it immediately from Dhaka — no trip to Singapore. If not cached, it forwards to the VPS.
 3. **Nginx** (port 443, `storefront.conf`) receives the request with `CF-Connecting-IP: <real visitor IP>`. The real-IP fix restores `$remote_addr`. Nginx forwards to `http://coovi_storefront:3000/saree`.
 4. **Storefront container** renders the page. Product images are `<img>` tags pointing at `res.cloudinary.com` — the browser fetches them from Cloudinary's CDN, not the Lightsail server.
-5. **Nginx** forwards the HTML back through Cloudflare back to the browser.
+5. **Nginx** forwards the HTML back through Cloudflare to the browser.
 6. **Cloudflare** caches the response for future visitors.
 
 When the customer places an order, the storefront calls `https://api.coovi.com/api/orders`. That goes: Cloudflare → Nginx → API container → MongoDB (internal network). MongoDB is never reachable from any other path.
@@ -813,12 +881,35 @@ When you push code to `master` in `coovi-api`, GitHub Actions builds the image o
 
 ---
 
+## Rollback
+
+Each service runs from a `:latest` tag on GHCR. If a bad deploy goes out:
+
+**Option 1 — Revert the code and redeploy:**
+```bash
+# In the app repo
+git revert HEAD
+git push origin master   # triggers GitHub Actions which builds + deploys the reverted code
+```
+
+**Option 2 — Pull a specific older image digest on the server:**
+```bash
+# Find the previous digest in GHCR (GitHub → Packages → coovi-api → older versions)
+docker pull ghcr.io/asad-404/coovi-api@sha256:<previous-digest>
+docker tag ghcr.io/asad-404/coovi-api@sha256:<previous-digest> ghcr.io/asad-404/coovi-api:latest
+docker compose -f /home/deploy/coovi/docker-compose.yml up -d --no-deps coovi-api
+```
+
+MongoDB data is on the `mongo_data` named volume. `docker compose down` does not delete it. Only `docker compose down -v` does — never run that in production.
+
+---
+
 ## Summary Table
 
 | File | Repo | What it does |
 |------|------|--------------|
 | `docker-compose.yml` | coovi-docs | All 5 containers, mem_limits, GHCR images, networks, volumes |
-| `nginx/nginx.conf` | coovi-docs | Global settings + Cloudflare real-IP restoration |
+| `nginx/nginx.conf` | coovi-docs | Global settings + Cloudflare real-IP restoration (23 ranges) |
 | `nginx/sites/api.conf` | coovi-docs | Routes `api.coovi.com` → API:5000 |
 | `nginx/sites/storefront.conf` | coovi-docs | Routes `coovi.com`/`www` → storefront:3000 |
 | `nginx/sites/admin.conf` | coovi-docs | Routes `admin.coovi.com` → admin:80 |
@@ -830,12 +921,12 @@ When you push code to `master` in `coovi-api`, GitHub Actions builds the image o
 | `.dockerignore` | coovi-api | Keeps secrets and junk out of image |
 | `.env.production.example` | coovi-api | Template for all API production variables |
 | `.github/workflows/deploy.yml` | coovi-api | Build → GHCR push → SSH deploy on master push |
-| `Dockerfile` | coovi-storefront | Multi-stage: Next standalone build → slim Node image |
+| `Dockerfile` | coovi-storefront | Multi-stage + NEXT_PUBLIC_* ARGs → slim Node image |
 | `.dockerignore` | coovi-storefront | Same |
-| `.env.production.example` | coovi-storefront | Template for storefront runtime variables |
+| `.env.production.example` | coovi-storefront | Template for storefront runtime secrets only |
 | `.github/workflows/deploy.yml` | coovi-storefront | Build with NEXT_PUBLIC_* build-args → GHCR → SSH |
 | `next.config.ts` | coovi-storefront | `output:'standalone'` + `images.unoptimized:true` |
-| `Dockerfile` | coovi-admin | Multi-stage: Vite build → nginx:alpine static image |
+| `Dockerfile` | coovi-admin | Multi-stage + VITE_* ARG → nginx:alpine static image |
 | `.dockerignore` | coovi-admin | Same |
 | `.env.production.example` | coovi-admin | Template (VITE_* vars go to GitHub Secrets, not here) |
 | `nginx-spa.conf` | coovi-admin | SPA fallback + 1-year asset cache inside admin container |
