@@ -419,11 +419,78 @@ Nginx sees all traffic coming from Cloudflare's edge IPs. Rate limiting in the A
 treat all visitors as one. The `real_ip_header CF-Connecting-IP` directive restores the real
 visitor IP. Update the IP ranges from https://www.cloudflare.com/ips/ periodically.
 
-### MongoDB vs Atlas
+### Performance Reality & Migration Path
 
-The compose file self-hosts MongoDB. To keep Atlas instead: remove the `mongodb` service,
-remove `mongo_data` volume and the `internal` network, set `MONGODB_URI` in
-`coovi-api/.env.production` to the Atlas connection string, and use Atlas's own backups.
+**Current plan:** Self-hosted MongoDB on the 2 GB Lightsail instance with tight memory limits.
+
+**Reality check:** The allocated memory is **minimum viable**. Under low-to-moderate traffic (20-50 daily users), the setup will work fine. However, as traffic grows, you may experience:
+
+- MongoDB cache pressure → slower queries (disk reads instead of RAM cache hits)
+- Memory spikes during peak hours → swap usage → 5-10x slower response times
+- Occasional OOM risk during traffic surges (e.g., Friday evening with 30-50 concurrent users)
+
+**Monitoring indicators that you need more resources:**
+
+```bash
+# Check memory usage
+docker stats --no-stream
+
+# Check swap usage (if consistently >500MB, you need more RAM)
+free -h
+
+# Watch for OOM kills in logs
+docker compose logs | grep -i "killed"
+```
+
+**When any of these happen consistently:**
+- Swap usage stays above 500 MB during normal traffic
+- API response times exceed 1 second
+- MongoDB queries take >500ms (check with MongoDB slow query log)
+- Containers getting OOM-killed
+
+**Migration options (in order of cost):**
+
+#### Option A: Move MongoDB to Atlas Free Tier (Recommended first step)
+**Cost:** $0 additional (still $12/mo total)
+
+Frees up 400 MB on the VPS, giving breathing room to the API and Storefront.
+
+**Steps:**
+1. Create MongoDB Atlas account, provision free M0 cluster (512 MB shared, 5 GB storage)
+2. Backup current data: `bash scripts/backup.sh`
+3. Restore to Atlas: `mongorestore --uri="mongodb+srv://..." --archive=mongo_backup.gz --gzip`
+4. Update `docker-compose.yml`:
+   - Remove `mongodb` service
+   - Remove `mongo_data` volume
+   - Remove `internal` network (or keep it, doesn't hurt)
+5. Update `coovi-api/.env.production`:
+   - Set `MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.xxxxx.mongodb.net/coovi?retryWrites=true&w=majority`
+6. Redeploy: `docker compose up -d`
+7. Increase container limits:
+   - API: 300m → 500m (heap: 220m → 380m)
+   - Storefront: 500m → 800m (heap: 380m → 620m)
+   - Total: 1.40 GB (600 MB free for OS + spikes)
+
+#### Option B: Upgrade to 4 GB Lightsail
+**Cost:** $24/mo (+$12)
+
+Remove all `mem_limit` constraints, let containers use what they need. Better performance, no worries.
+
+**Steps:**
+1. Snapshot the 2 GB instance in Lightsail console
+2. Create new 4 GB instance from snapshot
+3. Update DNS to new IP (or use static IP attached to the instance)
+4. Remove all `mem_limit` and `NODE_OPTIONS` from `docker-compose.yml`
+5. Update MongoDB: `command: []` (remove WiredTiger cache limit)
+
+#### Option C: Hybrid (Atlas + 4GB VPS)
+**Cost:** $24-34/mo
+
+Atlas free tier + 4 GB Lightsail. Overkill for current scale but sets you up for serious growth.
+
+---
+
+**Recommendation:** Start with the current self-hosted setup. Monitor closely for 2-4 weeks. If you hit performance issues, go with **Option A** (Atlas free tier) first — it costs nothing and solves most problems. Only upgrade to 4 GB if Atlas free tier limits become a bottleneck (100 connections, 5 GB storage).
 
 ### Rollback
 
