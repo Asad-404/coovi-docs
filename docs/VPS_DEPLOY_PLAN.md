@@ -58,6 +58,9 @@ Two phases:
 | Cloudinary Free | $0 |
 | GitHub Actions (free tier) | $0 |
 | GHCR (free for public images) | $0 |
+| **Monitoring & Error Tracking** | |
+| Sentry (Developer plan) | $0 (free 5K errors/mo) |
+| Uptime monitoring (UptimeRobot/BetterUptime) | $0 (free tier) |
 | **Total** | **$12.00/mo** |
 
 ---
@@ -491,6 +494,239 @@ Atlas free tier + 4 GB Lightsail. Overkill for current scale but sets you up for
 ---
 
 **Recommendation:** Start with the current self-hosted setup. Monitor closely for 2-4 weeks. If you hit performance issues, go with **Option A** (Atlas free tier) first — it costs nothing and solves most problems. Only upgrade to 4 GB if Atlas free tier limits become a bottleneck (100 connections, 5 GB storage).
+
+---
+
+## Monitoring & Observability
+
+Running a production VPS without monitoring is flying blind. You need to know about errors before your users complain.
+
+### Error Tracking — Sentry (Recommended)
+
+**Why Sentry:**
+- Catches unhandled exceptions in Node.js (API, Storefront)
+- Source maps for React/Next.js errors
+- Performance monitoring (slow API endpoints, slow page loads)
+- Release tracking (know which deploy caused an issue)
+- Free tier: 5,000 errors/month (plenty for early stage)
+
+**Setup:**
+
+1. **Create Sentry account** at https://sentry.io
+2. **Create three projects:**
+   - `coovi-api` (Node.js / Express)
+   - `coovi-storefront` (Next.js)
+   - `coovi-admin` (React)
+
+3. **Install SDK in each app:**
+
+**API (`coovi-api`):**
+```bash
+pnpm add @sentry/node @sentry/profiling-node
+```
+
+Add to `src/index.ts` (before any imports):
+```typescript
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: 0.1, // 10% of requests for performance monitoring
+  profilesSampleRate: 0.1,
+});
+```
+
+**Storefront (`coovi-storefront`):**
+```bash
+pnpm add @sentry/nextjs
+```
+
+Run setup wizard:
+```bash
+npx @sentry/wizard@latest -i nextjs
+```
+
+**Admin (`coovi-admin`):**
+```bash
+pnpm add @sentry/react
+```
+
+Add to `src/main.tsx`:
+```typescript
+import * as Sentry from "@sentry/react";
+
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration(),
+  ],
+  tracesSampleRate: 0.1,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
+```
+
+4. **Add env vars:**
+
+GitHub Secrets (for build-time injection):
+- Storefront: `NEXT_PUBLIC_SENTRY_DSN`
+- Admin: `VITE_SENTRY_DSN`
+
+Server env (`.env.production`):
+- API: `SENTRY_DSN=https://...@o...ingest.sentry.io/...`
+
+5. **Upload source maps (for readable stack traces):**
+
+Add to each `.github/workflows/deploy.yml` after build:
+```yaml
+- name: Upload source maps to Sentry
+  env:
+    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    SENTRY_ORG: your-org-name
+    SENTRY_PROJECT: coovi-api  # or coovi-storefront, coovi-admin
+  run: |
+    npx @sentry/cli releases new ${{ github.sha }}
+    npx @sentry/cli releases files ${{ github.sha }} upload-sourcemaps ./dist --url-prefix ~/
+    npx @sentry/cli releases finalize ${{ github.sha }}
+```
+
+---
+
+### Uptime Monitoring
+
+**Option 1: UptimeRobot (Easiest)**
+- Free tier: 50 monitors, 5-minute checks
+- Setup: https://uptimerobot.com
+- Add monitors for:
+  - `https://coovi.com` (GET, expect 200)
+  - `https://api.coovi.com/api/health` (GET, expect 200)
+  - `https://admin.coovi.com` (GET, expect 200)
+- Alert via email/SMS when down
+
+**Option 2: BetterUptime (Better free tier)**
+- Free tier: unlimited monitors, 3-minute checks, 1 phone call/month
+- Setup: https://betteruptime.com
+- Same monitors as above
+- Optional: Create a `/api/health` endpoint that checks MongoDB connection:
+  ```typescript
+  app.get('/api/health', async (req, res) => {
+    try {
+      await mongoose.connection.db.admin().ping();
+      res.json({ status: 'ok', db: 'connected' });
+    } catch (err) {
+      res.status(503).json({ status: 'error', db: 'disconnected' });
+    }
+  });
+  ```
+
+---
+
+### Server Monitoring
+
+**Option 1: Docker Stats Dashboard (Free, self-hosted)**
+
+Create a simple monitoring script on the server:
+
+`/home/deploy/coovi/scripts/monitor.sh`:
+```bash
+#!/bin/bash
+
+echo "=== Memory Usage ==="
+free -h
+
+echo ""
+echo "=== Swap Usage ==="
+swapon --show
+
+echo ""
+echo "=== Disk Usage ==="
+df -h | grep -E "Filesystem|/dev/root"
+
+echo ""
+echo "=== Container Stats ==="
+docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"
+
+echo ""
+echo "=== Docker Disk Usage ==="
+docker system df
+```
+
+Make it executable and run daily via cron:
+```bash
+chmod +x /home/deploy/coovi/scripts/monitor.sh
+crontab -e
+# Add:
+0 9 * * * /home/deploy/coovi/scripts/monitor.sh | mail -s "COOVI Daily Health" you@email.com
+```
+
+**Option 2: Netdata (Free, web dashboard)**
+
+Install on the VPS:
+```bash
+bash <(curl -Ss https://my-netdata.io/kickstart.sh)
+```
+
+Access at `http://YOUR_VPS_IP:19999`. Real-time charts for CPU, RAM, disk, network, and per-container metrics.
+
+**Option 3: Prometheus + Grafana (Advanced, overkill for 2GB)**
+
+Skip this unless you upgrade to 4GB+. Too resource-heavy for the current setup.
+
+---
+
+### Log Management
+
+**Current approach (acceptable for small scale):**
+```bash
+# View logs
+docker compose logs -f coovi-api
+docker compose logs --tail=100 coovi-storefront
+
+# Search logs for errors
+docker compose logs coovi-api | grep -i error
+
+# Export logs for analysis
+docker compose logs --since 24h coovi-api > api-errors.log
+```
+
+**Upgrade path (when needed):**
+- **Papertrail** (free 50MB/month) — aggregates logs from all containers, searchable web UI
+- **Loki + Grafana** (self-hosted, but needs more RAM)
+
+For now, Sentry captures errors automatically, so log aggregation is optional.
+
+---
+
+### Monitoring Checklist
+
+- [ ] Sentry installed in API, Storefront, Admin
+- [ ] Sentry DSNs added to GitHub Secrets and server env files
+- [ ] Source maps uploaded in GitHub Actions workflows
+- [ ] Uptime monitoring configured (UptimeRobot or BetterUptime)
+- [ ] Health check endpoint created (`/api/health`)
+- [ ] Server monitoring script created and scheduled (daily email)
+- [ ] Or Netdata installed for real-time dashboard
+- [ ] Test: Trigger an error in each app, verify it appears in Sentry
+- [ ] Test: Stop a container, verify uptime monitor alerts you
+
+---
+
+### Monitoring costs summary
+
+| Service | Tier | Cost | Limits |
+|---------|------|------|--------|
+| Sentry | Developer (free) | $0 | 5K errors/mo, 1 user |
+| UptimeRobot | Free | $0 | 50 monitors, 5-min checks |
+| Netdata | Free (self-hosted) | $0 | Uses ~50-80MB RAM |
+| **Total** | | **$0** | |
+
+**When to upgrade:**
+- Sentry: when you exceed 5K errors/month or need more users → Team plan $26/mo
+- UptimeRobot: when you need <5min checks or more monitors → $7/mo
 
 ### Rollback
 
