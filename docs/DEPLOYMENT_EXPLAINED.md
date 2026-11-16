@@ -917,11 +917,204 @@ MongoDB data is on the `mongo_data` named volume. `docker compose down` does not
 
 ---
 
+---
+
+## Monitoring & Error Tracking
+
+Production deployments need visibility into errors and performance issues. Sentry and uptime monitoring are essential.
+
+### Sentry (Error Tracking)
+
+**What is Sentry?**
+
+Sentry captures unhandled exceptions, performance issues, and user sessions. When your API throws an error or a user encounters a bug in the storefront, Sentry captures the full context — stack trace, user details, browser info, and breadcrumbs leading to the error.
+
+**Why it matters:**
+
+Without Sentry, you discover bugs when users complain. With Sentry, you discover bugs seconds after they happen, often before the first user even notices.
+
+**Setup pattern (same for all apps):**
+
+1. Install the SDK
+2. Initialize with your DSN (Data Source Name — a unique URL that identifies your project)
+3. Set environment to "production"
+4. Enable performance monitoring (samples 10% of requests)
+5. Upload source maps so stack traces show real file/line numbers instead of minified gibberish
+
+**API example:**
+
+```typescript
+import * as Sentry from "@sentry/node";
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: 0.1, // 10% of requests tracked for performance
+});
+
+// Later, after all routes:
+app.use(Sentry.Handlers.errorHandler());
+```
+
+When an API endpoint crashes, Sentry logs the error automatically. You get an email or Slack notification instantly.
+
+**Storefront/Admin example:**
+
+Next.js and React apps run in the browser, so errors happen on the user's machine. Sentry captures them and sends reports back to your dashboard. You see which browser, which page, which user action triggered the error.
+
+**Source maps:**
+
+JavaScript is minified in production: `function handleClick()` becomes `function a()`. When an error occurs, the stack trace references `a()`, which is useless. Source maps translate minified code back to readable code.
+
+GitHub Actions uploads source maps to Sentry after every build. The `sentry-cli releases` command tags each deploy with the Git commit SHA, so you know exactly which version caused an error.
+
+---
+
+### Uptime Monitoring
+
+**What is uptime monitoring?**
+
+A service that pings your website every few minutes. If it doesn't respond, you get an alert via email, SMS, or phone call.
+
+**Two options:**
+
+- **UptimeRobot (free):** 50 monitors, checks every 5 minutes, email/SMS alerts
+- **BetterUptime (better free tier):** unlimited monitors, checks every 3 minutes, includes 1 phone call/month
+
+**What to monitor:**
+
+1. `https://coovi.com` — ensures the storefront homepage loads
+2. `https://api.coovi.com/api/health` — ensures the API and database are connected
+3. `https://admin.coovi.com` — ensures the admin panel loads
+
+If any of these fail, you're alerted immediately instead of discovering the outage when users complain.
+
+**The health endpoint:**
+
+A health check endpoint goes beyond "server is up." It verifies critical dependencies:
+
+```typescript
+app.get('/api/health', async (req, res) => {
+  try {
+    await mongoose.connection.db.admin().ping();
+    res.json({ 
+      status: 'ok', 
+      db: 'connected',
+      uptime: process.uptime() 
+    });
+  } catch (err) {
+    res.status(503).json({ status: 'error', db: 'disconnected' });
+  }
+});
+```
+
+This endpoint returns 200 if MongoDB is reachable, 503 if not. Your uptime monitor detects database failures even if the API container itself is running.
+
+---
+
+### Server Monitoring
+
+**Option 1: Simple bash script**
+
+A cron job runs daily and emails you a report:
+
+```bash
+#!/bin/bash
+echo "Memory: $(free -h | grep Mem)"
+echo "Swap: $(swapon --show)"
+echo "Disk: $(df -h | grep /dev/root)"
+docker stats --no-stream
+```
+
+Scheduled via cron:
+```bash
+0 9 * * * /home/deploy/coovi/scripts/monitor.sh | mail -s "Daily Health" you@email.com
+```
+
+**Option 2: Netdata (real-time dashboard)**
+
+Netdata is a lightweight monitoring tool that runs on the VPS and provides a web UI at `http://YOUR_VPS_IP:19999`. Real-time charts for:
+
+- CPU, RAM, swap, disk I/O
+- Per-container resource usage
+- Network traffic
+- Process list
+
+Install with one command:
+```bash
+bash <(curl -Ss https://my-netdata.io/kickstart.sh)
+```
+
+Uses ~50-80 MB RAM. Access via SSH tunnel for security:
+```bash
+ssh -L 19999:localhost:19999 deploy@YOUR_VPS_IP
+# Then open http://localhost:19999 in your browser
+```
+
+---
+
+### Log Management
+
+**Current approach:**
+
+Docker Compose aggregates logs from all containers. View them with:
+
+```bash
+docker compose logs -f coovi-api          # follow API logs
+docker compose logs --tail=100 mongodb    # last 100 lines from MongoDB
+docker compose logs --since 1h | grep -i error   # errors in the last hour
+```
+
+Logs are stored until the container is deleted. To persist logs across container rebuilds, you'd add a volume mount for log files or use a log aggregator.
+
+**When to upgrade:**
+
+For small scale (under 10,000 requests/day), `docker compose logs` is acceptable. Sentry captures errors, so you rarely need to grep logs manually. When you grow, consider:
+
+- **Papertrail** (free 50 MB/month) — aggregates logs from all containers, searchable web UI
+- **Loki + Grafana** (self-hosted) — powerful but requires more RAM
+
+---
+
+### Memory Budget Reality Check
+
+The 2 GB plan is **minimum viable**. Here's what happens as traffic grows:
+
+**Low traffic (20-50 users/day):**
+- Memory: ~1.4-1.5 GB used
+- Swap: negligible
+- Performance: good
+- Status: ✅ Fine
+
+**Moderate traffic (100-200 users/day, 10-20 concurrent during peak):**
+- Memory: ~1.7-1.8 GB used
+- Swap: 200-500 MB in use
+- Performance: acceptable, occasional slowness
+- Status: ⚠️ Monitor closely
+
+**High traffic (500+ users/day, 30-50 concurrent during peak):**
+- Memory: hitting 2 GB limit
+- Swap: 1-2 GB in use (disk is 30-100× slower than RAM)
+- Performance: slow response times (1-3 seconds), occasional OOM kills
+- Status: 🔴 Needs upgrade
+
+**When to migrate:**
+
+See the "Performance Reality & Migration Path" section in `VPS_DEPLOY_PLAN.md`. Three upgrade options:
+
+1. **Move MongoDB to Atlas free tier** — frees 400 MB on the VPS, costs $0
+2. **Upgrade to 4 GB Lightsail** — costs $24/month, removes memory constraints
+3. **Hybrid** (Atlas + 4 GB VPS) — $24-34/month, ready for serious scale
+
+Start with self-hosted MongoDB. Monitor swap usage with `free -h`. When swap consistently exceeds 500 MB, migrate to Atlas free tier. When Atlas free tier limits (100 connections, 5 GB storage) become a bottleneck, upgrade the VPS to 4 GB.
+
+---
+
 ## Summary Table
 
 | File | Repo | What it does |
 |------|------|--------------|
-| `docker-compose.yml` | coovi-docs | All 5 containers, mem_limits, GHCR images, networks, volumes |
+| `docker-compose.yml` | coovi-docs | All 5 containers, mem_limits (400/300/500/48/48m), GHCR images, networks, volumes |
 | `nginx/nginx.conf` | coovi-docs | Global settings + Cloudflare real-IP restoration (23 ranges) |
 | `nginx/sites/api.conf` | coovi-docs | Routes `api.coovi.com` → API:5000 |
 | `nginx/sites/storefront.conf` | coovi-docs | Routes `coovi.com`/`www` → storefront:3000 |
@@ -929,18 +1122,41 @@ MongoDB data is on the `mongo_data` named volume. `docker compose down` does not
 | `scripts/deploy.sh` | coovi-docs | `docker compose pull` + restart one service or all |
 | `scripts/backup.sh` | coovi-docs | Nightly mongodump, 14-day retention |
 | `scripts/ssl-issue.sh` | coovi-docs | Let's Encrypt cert issue + auto-renew cron |
+| `scripts/monitor.sh` | coovi-docs | Daily health report (memory, swap, disk, container stats) |
 | `.env.production.example` | coovi-docs | Template for Mongo root credentials |
-| `Dockerfile` | coovi-api | Multi-stage: TS compile → prod-only Node image |
+| `Dockerfile` | coovi-api | Multi-stage: TS compile → prod-only Node image (300m limit, heap 220m) |
 | `.dockerignore` | coovi-api | Keeps secrets and junk out of image |
-| `.env.production.example` | coovi-api | Template for all API production variables |
-| `.github/workflows/deploy.yml` | coovi-api | Build → GHCR push → SSH deploy on master push |
-| `Dockerfile` | coovi-storefront | Multi-stage + NEXT_PUBLIC_* ARGs → slim Node image |
+| `.env.production.example` | coovi-api | Template for all API production variables + Sentry DSN |
+| `.github/workflows/deploy.yml` | coovi-api | Build → GHCR push → SSH deploy + Sentry source maps upload |
+| `src/index.ts` | coovi-api | Sentry initialization + `/api/health` endpoint |
+| `Dockerfile` | coovi-storefront | Multi-stage + NEXT_PUBLIC_* ARGs → slim Node image (500m limit, heap 380m) |
 | `.dockerignore` | coovi-storefront | Same |
 | `.env.production.example` | coovi-storefront | Template for storefront runtime secrets only |
-| `.github/workflows/deploy.yml` | coovi-storefront | Build with NEXT_PUBLIC_* build-args → GHCR → SSH |
+| `.github/workflows/deploy.yml` | coovi-storefront | Build with NEXT_PUBLIC_* build-args → GHCR → SSH + Sentry source maps |
 | `next.config.ts` | coovi-storefront | `output:'standalone'` + `images.unoptimized:true` |
-| `Dockerfile` | coovi-admin | Multi-stage + VITE_* ARG → nginx:alpine static image |
+| `sentry.client.config.ts` | coovi-storefront | Sentry browser-side initialization |
+| `sentry.server.config.ts` | coovi-storefront | Sentry server-side initialization |
+| `Dockerfile` | coovi-admin | Multi-stage + VITE_* ARG → nginx:alpine static image (48m limit) |
 | `.dockerignore` | coovi-admin | Same |
 | `.env.production.example` | coovi-admin | Template (VITE_* vars go to GitHub Secrets, not here) |
 | `nginx-spa.conf` | coovi-admin | SPA fallback + 1-year asset cache inside admin container |
-| `.github/workflows/deploy.yml` | coovi-admin | Build with VITE_API_URL build-arg → GHCR → SSH |
+| `.github/workflows/deploy.yml` | coovi-admin | Build with VITE_API_URL + VITE_SENTRY_DSN build-args → GHCR → SSH + Sentry source maps |
+| `src/main.tsx` | coovi-admin | Sentry browser initialization |
+
+---
+
+## What's Next?
+
+Before you can deploy, you need to complete the tasks in `PRE_DEPLOYMENT_CHECKLIST.md`. The critical path:
+
+1. **Update all three app repos** with Dockerfiles, Sentry integration, health checks, and GitHub Actions workflows
+2. **Create Sentry account** and three projects (API, Storefront, Admin)
+3. **Configure GitHub Secrets** in all three repos
+4. **Provision Lightsail instance** and complete server setup
+5. **Deploy and verify** all services
+6. **Setup monitoring** and backups
+7. **Test CI/CD pipelines** and load test
+
+Estimated time: 6-16 hours depending on your familiarity with Docker and Linux server management.
+
+The checklist breaks everything into small, verifiable steps with copy-paste commands. Work through it section by section, checking off tasks as you go.
