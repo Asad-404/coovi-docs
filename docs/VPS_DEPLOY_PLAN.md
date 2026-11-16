@@ -394,7 +394,7 @@ Set these in **each** app repo under Settings → Secrets and variables → Acti
 - [ ] `https://coovi.com`, `https://api.coovi.com/health`, `https://admin.coovi.com` all load
 - [ ] Nginx real-IP working: check access log shows visitor IPs, not Cloudflare edge IPs
 - [ ] Backup script run once manually, nightly cron installed
-- [ ] All items in `docs/GO_LIVE_CHECKLIST.md` also completed
+- [ ] All monitoring and error tracking configured (see `docs/PRE_DEPLOYMENT_CHECKLIST.md` for details)
 
 ---
 
