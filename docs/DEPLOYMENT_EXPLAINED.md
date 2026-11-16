@@ -252,13 +252,13 @@ The Docker Compose file format version. 3.9 is stable and widely supported.
 ```yaml
   mongodb:
     image: mongo:7
-    mem_limit: 512m
-    command: ["--wiredTigerCacheSizeGB", "0.35"]
+    mem_limit: 400m
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
 ```
 
-`image: mongo:7` uses the official Mongo 7 image — no Dockerfile needed. `mem_limit: 512m` caps MongoDB at 512 MB of RAM. Without a cap, MongoDB's WiredTiger storage engine will claim as much RAM as it can find. On a 2 GB server shared by five containers, that would starve everything else.
+`image: mongo:7` uses the official Mongo 7 image — no Dockerfile needed. `mem_limit: 400m` caps MongoDB at 400 MB of RAM. Without a cap, MongoDB's WiredTiger storage engine will claim as much RAM as it can find. On a 2 GB server shared by five containers, that would starve everything else.
 
-`command` overrides the default startup command. `--wiredTigerCacheSizeGB 0.35` tells the storage engine to use at most 350 MB for its in-memory cache. This is what keeps it inside the 512m limit — without it, MongoDB ignores the container's memory cap and gets killed by the OS anyway.
+`command` overrides the default startup command. `--wiredTigerCacheSizeGB 0.25` tells the storage engine to use at most 250 MB for its in-memory cache. This is what keeps it inside the 400m limit — without it, MongoDB ignores the container's memory cap and gets killed by the OS anyway.
 
 ```yaml
     container_name: coovi_mongo
@@ -307,12 +307,12 @@ MongoDB is only on the `internal` network — not reachable from outside, only f
 Previously this was `build: context: ./coovi-api`. Now it's `image:` — Docker pulls this pre-built image from GitHub Container Registry instead of building it on the server. GitHub Actions builds and pushes the image; the server just downloads it.
 
 ```yaml
-    mem_limit: 350m
+    mem_limit: 300m
     environment:
-      - NODE_OPTIONS=--max-old-space-size=256
+      - NODE_OPTIONS=--max-old-space-size=220
 ```
 
-`mem_limit: 350m` caps the container at 350 MB. `NODE_OPTIONS=--max-old-space-size=256` tells Node's V8 engine to cap its own JavaScript heap at 256 MB. These two work together — the heap limit is set below the container limit so Node triggers its own garbage collector before the container's hard cap is hit. If the heap limit weren't set, Node might silently accumulate memory up to the container cap and then get killed.
+`mem_limit: 300m` caps the container at 300 MB. `NODE_OPTIONS=--max-old-space-size=220` tells Node's V8 engine to cap its own JavaScript heap at 220 MB. These two work together — the heap limit is set below the container limit so Node triggers its own garbage collector before the container's hard cap is hit. If the heap limit weren't set, Node might silently accumulate memory up to the container cap and then get killed.
 
 ```yaml
     env_file: ./coovi-api/.env.production
@@ -344,12 +344,12 @@ On both networks — needs `internal` to reach MongoDB, `web` so Nginx can reach
 ```yaml
   coovi-storefront:
     image: ghcr.io/asad-404/coovi-storefront:latest
-    mem_limit: 650m
+    mem_limit: 500m
     environment:
-      - NODE_OPTIONS=--max-old-space-size=512
+      - NODE_OPTIONS=--max-old-space-size=380
 ```
 
-Same pattern — pre-built image from GHCR, memory cap, Node heap limit set below the cap. Next.js is the most memory-hungry service so it gets the largest allocation (650m).
+Same pattern — pre-built image from GHCR, memory cap, Node heap limit set below the cap. Next.js is the most memory-hungry service so it gets the largest allocation (500m).
 
 ```yaml
     env_file: ./coovi-storefront/.env.production
@@ -364,10 +364,10 @@ This file contains `STOREFRONT_API_KEY` (a server-side secret) and `NODE_ENV`. I
 ```yaml
   coovi-admin:
     image: ghcr.io/asad-404/coovi-admin:latest
-    mem_limit: 64m
+    mem_limit: 48m
 ```
 
-The admin panel is static files served by Nginx. No Node process, no env file. 64 MB is generous for Nginx serving HTML/CSS/JS. `VITE_API_URL` is baked into the bundle at build time by GitHub Actions.
+The admin panel is static files served by Nginx. No Node process, no env file. 48 MB is sufficient for Nginx serving HTML/CSS/JS. `VITE_API_URL` is baked into the bundle at build time by GitHub Actions.
 
 ---
 
@@ -376,7 +376,7 @@ The admin panel is static files served by Nginx. No Node process, no env file. 6
 ```yaml
   nginx:
     image: nginx:alpine
-    mem_limit: 64m
+    mem_limit: 48m
     ports:
       - "80:80"
       - "443:443"
@@ -400,14 +400,14 @@ Nginx is the **only container that uses `ports`** — it's the only one the outs
 
 | Container | mem_limit | Node heap cap |
 |-----------|-----------|---------------|
-| MongoDB   | 512m      | (WiredTiger 0.35 GB) |
-| API       | 350m      | 256m |
-| Storefront| 650m      | 512m |
-| Admin     | 64m       | — (Nginx, not Node) |
-| Nginx     | 64m       | — |
-| **Total** | **1.64 GB** | |
+| MongoDB   | 400m      | (WiredTiger 0.25 GB) |
+| API       | 300m      | 220m |
+| Storefront| 500m      | 380m |
+| Admin     | 48m       | — (Nginx, not Node) |
+| Nginx     | 48m       | — |
+| **Total** | **1.30 GB** | |
 
-OS + Docker daemon uses ~0.4 GB, leaving ~360 MB free RAM with a 4 GB swap file as a safety buffer.
+Ubuntu 24.04 (~200-250 MB) + Docker daemon (~100-150 MB) uses ~350-400 MB, leaving ~250-350 MB free RAM with a 4 GB swap file as a safety buffer. This provides comfortable headroom for traffic spikes without triggering OOM kills.
 
 ---
 

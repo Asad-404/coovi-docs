@@ -66,13 +66,13 @@ Two phases:
 
 | Service      | Image                                  | Port | mem_limit | Public domain         |
 |--------------|----------------------------------------|------|-----------|-----------------------|
-| coovi-api    | `ghcr.io/asad-404/coovi-api:latest`    | 5000 | 350m      | api.coovi.com         |
-| storefront   | `ghcr.io/asad-404/coovi-storefront:latest` | 3000 | 650m | coovi.com / www       |
-| admin        | `ghcr.io/asad-404/coovi-admin:latest`   | 80   | 64m       | admin.coovi.com       |
-| MongoDB      | `mongo:7`                               | 27017| 512m      | internal only         |
-| Nginx proxy  | `nginx:alpine`                          | 80, 443 | 64m   | (all domains)         |
+| coovi-api    | `ghcr.io/asad-404/coovi-api:latest`    | 5000 | 300m      | api.coovi.com         |
+| storefront   | `ghcr.io/asad-404/coovi-storefront:latest` | 3000 | 500m | coovi.com / www       |
+| admin        | `ghcr.io/asad-404/coovi-admin:latest`   | 80   | 48m       | admin.coovi.com       |
+| MongoDB      | `mongo:7`                               | 27017| 400m      | internal only         |
+| Nginx proxy  | `nginx:alpine`                          | 80, 443 | 48m   | (all domains)         |
 
-**Total peak runtime cap: ~1.64 GB**, leaving ~360 MB headroom for the OS and Docker daemon on the 2 GB instance (plus 4 GB swap as a safety buffer).
+**Total peak runtime cap: ~1.30 GB**, leaving ~250-350 MB headroom for the OS (Ubuntu 24.04 ~200-250MB + Docker daemon ~100-150MB) on the 2 GB instance (plus 4 GB swap as a safety buffer).
 
 ---
 
@@ -401,17 +401,16 @@ Set these in **each** app repo under Settings → Secrets and variables → Acti
 
 | Component                        | Approx RAM | mem_limit |
 |----------------------------------|------------|-----------|
-| OS + Docker daemon               | ~0.4 GB    | —         |
-| MongoDB (WiredTiger cache 0.35 GB)| ~0.5 GB    | 512m      |
-| coovi-api                        | ~0.3 GB    | 350m      |
-| coovi-storefront                 | ~0.55 GB   | 650m      |
-| Nginx proxy                      | ~0.05 GB   | 64m       |
-| coovi-admin (nginx static)       | ~0.02 GB   | 64m       |
-| **Total**                        | **~1.8 GB**| **1.64 GB**|
+| Ubuntu 24.04 base                | ~0.20-0.25 GB | —      |
+| Docker daemon                    | ~0.10-0.15 GB | —      |
+| MongoDB (WiredTiger cache 0.25 GB)| ~0.40 GB   | 400m      |
+| coovi-api                        | ~0.30 GB   | 300m      |
+| coovi-storefront                 | ~0.50 GB   | 500m      |
+| Nginx proxy                      | ~0.04 GB   | 48m       |
+| coovi-admin (nginx static)       | ~0.04 GB   | 48m       |
+| **Total OS + containers**        | **~1.58-1.68 GB** | **1.30 GB** |
 
-Leaves ~200 MB free RAM with 4 GB swap as overflow. Tight but workable. The mem_limits prevent
-any single container from OOM-killing the others. If you upgrade to a 4 GB instance later,
-remove the mem_limits and the `--wiredTigerCacheSizeGB` cap for better performance.
+Leaves ~250-350 MB free RAM with 4 GB swap as overflow. Comfortable headroom for traffic spikes. The mem_limits prevent any single container from OOM-killing the others. If you upgrade to a 4 GB instance later, remove the mem_limits and the `--wiredTigerCacheSizeGB` cap for better performance.
 
 ### Cloudflare real IP
 
