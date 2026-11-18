@@ -34,6 +34,7 @@ The workspace root is the private `Asad-404/coovi-docs` repository on `master`. 
 - Courier booking with Steadfast is built, but needs the owner's account and keys. Admins can manually refresh the Steadfast delivery status and open the tracking link in the admin panel. Automatic status updates and a customer-facing courier tracking card on the storefront are intentionally deferred until the owner confirms a courier is live.
 - Product pages keep cached price and stock; checkout rechecks current values. Home and product first-byte measurements after caching were about 150–215 ms and 133–150 ms respectively.
 - No ads or ad pixels are planned. The seed data is stale; do not run the seed script against the live database.
+- Structured error handling is implemented across all three repos with correlation IDs, automatic PII protection, and Sentry-ready integration (see `docs/STRUCTURED_ERROR_HANDLING.md`).
 
 ## Browser acceptance still needed
 
