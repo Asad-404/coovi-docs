@@ -29,7 +29,7 @@ This is the short list of actions that still matter before Coovi accepts real or
 
 | Status | Action |
 |:------:|--------|
-| ❌ | Add error tracking to the API, storefront and admin after choosing a provider. |
+| ✅ | Structured error handling implemented. Add Sentry/monitoring service after choosing provider (5-min setup, see docs/STRUCTURED_ERROR_HANDLING.md). |
 | ❌ | Turn on GitHub Dependabot security alerts and security updates in all three app repositories. |
 | ❌ | Review stock-at-confirmation behavior, including two customers ordering the last piece and whether pre-orders are enabled; decide whether reservation is needed. |
 | ❌ | Decide whether the one-week order-phone cookie should be shorter on shared devices. |
@@ -91,7 +91,8 @@ The Meta Pixel and other ad tracking are intentionally not used. The customer or
 ### ⚠️ Needs Attention
 
 **Monitoring & Operations:**
-- ❌ No error tracking service configured
+- ✅ Structured error handling implemented across all repos (API, Storefront, Admin)
+- ⚠️ Sentry ready but not configured (optional, 5-minute setup when needed)
 - ❌ No automated database backups
 - ❌ GitHub Dependabot not enabled
 - ⚠️ Basic hosting provider monitoring only
