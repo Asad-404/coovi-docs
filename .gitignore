@@ -5,7 +5,7 @@
 /coovi-admin/
 
 # Local-only files
-.claude/settings.local.json
+.claude/
 node_modules/
 .env
 .env.*
